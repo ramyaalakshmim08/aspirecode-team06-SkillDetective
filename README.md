@@ -1,5 +1,18 @@
 # Skill Detective
 
+### ASPIRE CODE AI - TEAM 06
+
+| Name | Role |
+|---|---|
+| Vishnu Maya | Team Lead |
+| Ramyaa Lakshmi M | Git & Documentation Owner |
+| Monika | Developer |
+| Dhanya | Developer |
+| Moushme | Presenter/Demo Owner |
+| Saif Modan | R&D/Research Owner |
+
+---
+
 > Discover what you are good at. Find where you can go next.
 
 Skill Detective is an academic skill-discovery platform designed to help students identify their cognitive strengths, diagnose improvement areas, evaluate career compatibility, and follow personalized learning roadmaps through interactive challenges.
@@ -155,3 +168,4 @@ npm run preview
 ## License
 
 This project is licensed under the MIT License.
+
