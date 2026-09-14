@@ -4,8 +4,7 @@ import {
   ChevronUp, 
   CheckCircle2, 
   Play, 
-  ShieldCheck,
-  Award
+  ShieldCheck
 } from 'lucide-react';
 import { SkillData, NavigationTab } from '../types';
 import { soundFx } from '../services/audioService';
@@ -19,6 +18,7 @@ export const SkillProfileView: React.FC<SkillProfileViewProps> = ({
   skills,
   onNavigate
 }) => {
+  // Keep first 2 expanded by default
   const [expandedSkillIds, setExpandedSkillIds] = useState<string[]>([
     'attention-to-detail',
     'logical'
@@ -50,9 +50,8 @@ export const SkillProfileView: React.FC<SkillProfileViewProps> = ({
         return <span className="badge badge-indigo">Developing</span>;
       case 'needs-practice':
         return <span className="badge badge-warning">Needs Practice</span>;
-      case 'unassessed':
       default:
-        return <span className="badge badge-neutral">Not Assessed</span>;
+        return null;
     }
   };
 
@@ -61,7 +60,7 @@ export const SkillProfileView: React.FC<SkillProfileViewProps> = ({
       {/* Page Header */}
       <div className="profile-header-strip">
         <div>
-          <h2 className="page-heading">Your Skill Profile & Calibration</h2>
+          <h2 className="page-heading">Your Skill Profile</h2>
           <p className="page-subtitle">
             Your verified results reveal how you approach patterns, algorithmic trade-offs, analytical data, and verbal communication.
           </p>
@@ -76,7 +75,7 @@ export const SkillProfileView: React.FC<SkillProfileViewProps> = ({
         </button>
       </div>
 
-      {/* Measurement Methodology Trust Banner */}
+      {/* Measurement Methodology Trust Banner (Section 35) */}
       <div className="transparency-note-box">
         <ShieldCheck size={20} className="text-accent flex-shrink-0" />
         <div className="note-content">
@@ -91,13 +90,11 @@ export const SkillProfileView: React.FC<SkillProfileViewProps> = ({
       <div className="skills-expanded-list">
         {skills.map((skill) => {
           const isExpanded = expandedSkillIds.includes(skill.id);
-          const delta = skill.score !== null && skill.initialScore !== null 
-            ? skill.score - skill.initialScore 
-            : 0;
+          const delta = skill.score - skill.initialScore;
 
           return (
             <div key={skill.id} className="skill-detail-card card">
-              {/* Card Header */}
+              {/* Card Header (Clickable toggle) */}
               <button
                 type="button"
                 className="skill-card-toggle-btn"
@@ -108,22 +105,13 @@ export const SkillProfileView: React.FC<SkillProfileViewProps> = ({
                   <div className="skill-title-group">
                     <h3 className="skill-title">{skill.name}</h3>
                     {getStatusBadge(skill.status)}
-                    {skill.confidence && skill.confidence !== 'none' && (
-                      <span className="badge badge-secondary text-[10px] uppercase font-mono">
-                        {skill.confidence} Confidence
-                      </span>
-                    )}
                   </div>
-                  <span className="text-xs text-muted">
-                    {skill.completedChallenges} verified {skill.completedChallenges === 1 ? 'attempt' : 'attempts'}
-                  </span>
+                  <span className="text-xs text-muted">Level {skill.level} Aptitude</span>
                 </div>
 
                 <div className="skill-header-right">
                   <div className="score-badge-box">
-                    <span className="score-val font-mono font-bold">
-                      {skill.score !== null ? skill.score : '--'}
-                    </span>
+                    <span className="score-val font-mono font-bold">{skill.score}</span>
                     <span className="score-denom font-mono text-xs text-muted">/ 100</span>
                   </div>
 
@@ -145,62 +133,66 @@ export const SkillProfileView: React.FC<SkillProfileViewProps> = ({
                   <div
                     className="progress-bar-fill"
                     style={{
-                      width: skill.score !== null ? `${skill.score}%` : '0%',
-                      backgroundColor: skill.score !== null && skill.score >= 80 
-                        ? 'var(--color-success)' 
-                        : skill.score !== null && skill.score >= 65 
-                        ? 'var(--accent-indigo)' 
-                        : 'var(--color-warning)'
+                      width: `${skill.score}%`,
+                      backgroundColor: skill.score >= 80 ? 'var(--color-success)' : skill.score >= 65 ? 'var(--accent-indigo)' : 'var(--color-warning)'
                     }}
                   />
                 </div>
               </div>
 
-              {/* Collapsible Details */}
+              {/* Expandable Detail Section */}
               {isExpanded && (
-                <div className="skill-drawer-content">
-                  <div className="drawer-grid">
-                    {/* Demonstrated Strength */}
-                    <div className="drawer-col col-strength">
-                      <div className="col-heading-row">
-                        <CheckCircle2 size={16} className="text-success" />
-                        <h4 className="drawer-col-title">Diagnostic Findings</h4>
+                <div className="skill-expanded-body">
+                  <div className="expanded-grid">
+                    {/* Left: Strength & Practice */}
+                    <div className="insight-col">
+                      <div className="insight-box insight-strength">
+                        <span className="insight-label text-success">Demonstrated Strength</span>
+                        <p className="insight-text text-sm">{skill.strength}</p>
                       </div>
-                      <p className="drawer-col-body">{skill.strength}</p>
-                    </div>
 
-                    {/* Practice Area */}
-                    <div className="drawer-col col-practice">
-                      <div className="col-heading-row">
-                        <Award size={16} className="text-accent" />
-                        <h4 className="drawer-col-title">Practice Recommendation</h4>
+                      <div className="insight-box insight-practice">
+                        <span className="insight-label text-warning">Targeted Practice Recommendation</span>
+                        <p className="insight-text text-sm">{skill.practice}</p>
                       </div>
-                      <p className="drawer-col-body">{skill.practice}</p>
                     </div>
-                  </div>
 
-                  {/* Rubric Criteria */}
-                  <div className="rubric-measured-box">
-                    <span className="text-[11px] font-bold text-muted uppercase tracking-wider block mb-2">
-                      Empirical Dimensions Evaluated:
-                    </span>
-                    <div className="rubric-pills-row">
-                      {skill.whatIsMeasured.map((dim) => (
-                        <span key={dim} className="badge badge-secondary text-xs">{dim}</span>
-                      ))}
+                    {/* Right: Metrics Measured & Progress Meta */}
+                    <div className="metrics-col">
+                      <h4 className="metrics-heading">What is Being Measured</h4>
+                      <ul className="metrics-bullets">
+                        {skill.whatIsMeasured.map((m, idx) => (
+                          <li key={idx} className="metric-item">
+                            <CheckCircle2 size={14} className="text-accent metric-icon" />
+                            <span className="text-xs text-secondary">{m}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <div className="progress-meta-strip">
+                        <div className="p-meta-item">
+                          <span className="text-xs text-muted">Baseline: </span>
+                          <strong className="font-mono text-xs">{skill.initialScore}</strong>
+                        </div>
+                        <div className="p-meta-item">
+                          <span className="text-xs text-muted">Current: </span>
+                          <strong className="font-mono text-xs text-success">{skill.score}</strong>
+                        </div>
+                        <div className="p-meta-item">
+                          <span className="text-xs text-muted">Drills: </span>
+                          <strong className="font-mono text-xs">{skill.completedChallenges}</strong>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm drill-action-btn"
+                        onClick={() => onNavigate('challenges')}
+                      >
+                        <Play size={13} />
+                        <span>Practice {skill.name}</span>
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Practice CTA */}
-                  <div className="drawer-cta-row">
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => onNavigate('challenges')}
-                    >
-                      <Play size={14} />
-                      <span>Launch {skill.name} Challenge</span>
-                    </button>
                   </div>
                 </div>
               )}
@@ -208,6 +200,241 @@ export const SkillProfileView: React.FC<SkillProfileViewProps> = ({
           );
         })}
       </div>
+
+      <style>{`
+        .skill-profile-page {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-4);
+          width: 100%;
+        }
+
+        .profile-header-strip {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: var(--space-3);
+        }
+
+        .page-heading {
+          font-size: 1.45rem;
+          color: var(--primary-900);
+        }
+
+        .page-subtitle {
+          font-size: 0.9rem;
+          color: var(--text-secondary);
+        }
+
+        .transparency-note-box {
+          display: flex;
+          align-items: flex-start;
+          gap: var(--space-3);
+          padding: var(--space-3);
+          background-color: var(--bg-surface);
+          border: 1px solid var(--border-color);
+          border-left: 3px solid var(--accent-indigo);
+          border-radius: var(--radius-md);
+        }
+
+        .note-content {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .skills-expanded-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .skill-detail-card {
+          padding: 0;
+          overflow: hidden;
+        }
+
+        .skill-card-toggle-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: var(--space-4);
+          background-color: var(--bg-surface);
+          border: none;
+          text-align: left;
+          cursor: pointer;
+          transition: background-color var(--transition-fast);
+          gap: var(--space-2);
+        }
+
+        .skill-card-toggle-btn:hover {
+          background-color: var(--bg-subtle);
+        }
+
+        .skill-header-main {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .skill-title-group {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          flex-wrap: wrap;
+        }
+
+        .skill-title {
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .skill-header-right {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          flex-shrink: 0;
+        }
+
+        .score-badge-box {
+          display: flex;
+          align-items: baseline;
+          gap: 2px;
+        }
+
+        .score-val {
+          font-size: 1.25rem;
+          color: var(--text-primary);
+        }
+
+        .delta-badge {
+          background-color: var(--color-success-subtle);
+          padding: 2px 5px;
+          border-radius: var(--radius-xs);
+          font-weight: 700;
+        }
+
+        .chevron-circle {
+          color: var(--text-muted);
+        }
+
+        .skill-preview-bar {
+          padding: 0 var(--space-4) var(--space-3) var(--space-4);
+        }
+
+        .skill-expanded-body {
+          padding: var(--space-4);
+          border-top: 1px solid var(--border-subtle);
+          background-color: var(--bg-subtle);
+        }
+
+        .expanded-grid {
+          display: grid;
+          grid-template-columns: 1.15fr 1fr;
+          gap: var(--space-3);
+        }
+
+        .insight-col {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+        }
+
+        .insight-box {
+          padding: var(--space-3);
+          border-radius: var(--radius-md);
+          background-color: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .insight-label {
+          font-size: 0.68rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .insight-text {
+          color: var(--text-secondary);
+          line-height: 1.45;
+        }
+
+        .metrics-col {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+          background-color: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: var(--space-3);
+        }
+
+        .metrics-heading {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .metrics-bullets {
+          list-style: none;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .metric-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .metric-icon {
+          flex-shrink: 0;
+        }
+
+        .progress-meta-strip {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 6px 8px;
+          background-color: var(--bg-subtle);
+          border-radius: var(--radius-sm);
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .drill-action-btn {
+          margin-top: auto;
+          width: 100%;
+        }
+
+        @media (max-width: 768px) {
+          .expanded-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 500px) {
+          .skill-card-toggle-btn {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .skill-header-right {
+            width: 100%;
+            justify-content: space-between;
+            border-top: 1px dashed var(--border-subtle);
+            padding-top: 6px;
+          }
+        }
+      `}</style>
     </div>
   );
 };
