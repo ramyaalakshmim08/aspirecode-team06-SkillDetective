@@ -8,9 +8,34 @@ interface SkillBarProps {
 }
 
 export const SkillBar: React.FC<SkillBarProps> = ({ skill, onClick, showDelta = true }) => {
-  const delta = skill.score - skill.initialScore;
+  // If unassessed, render unassessed baseline state
+  if (skill.score === null) {
+    return (
+      <div 
+        className={`skill-bar-row ${onClick ? 'interactive-row' : ''}`}
+        onClick={onClick}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+      >
+        <div className="skill-bar-info">
+          <div className="skill-meta-left">
+            <span className="skill-name">{skill.name}</span>
+            <span className="badge badge-neutral text-xs">Not Assessed</span>
+          </div>
+          <div className="skill-meta-right">
+            <span className="text-xs text-muted font-mono">0 Challenges</span>
+          </div>
+        </div>
 
-  // Restrained colors as instructed in guidelines
+        <div className="skill-bar-track">
+          <div className="skill-bar-fill" style={{ width: '0%', backgroundColor: 'var(--border-color)' }} />
+        </div>
+      </div>
+    );
+  }
+
+  const delta = skill.initialScore !== null ? skill.score - skill.initialScore : 0;
+
   const getStatusConfig = (score: number) => {
     if (score >= 80) {
       return {
@@ -49,83 +74,30 @@ export const SkillBar: React.FC<SkillBarProps> = ({ skill, onClick, showDelta = 
         <div className="skill-meta-left">
           <span className="skill-name">{skill.name}</span>
           <span className={`badge ${status.badgeClass}`}>{status.label}</span>
+          {skill.confidence && skill.confidence !== 'none' && (
+            <span className="text-[10px] text-muted font-mono uppercase">
+              {skill.confidence} Conf
+            </span>
+          )}
         </div>
         <div className="skill-meta-right">
           {showDelta && delta > 0 && (
-            <span className="skill-delta text-xs text-success">+{delta} pts</span>
+            <span className="skill-delta text-xs text-success font-mono">+{delta} pts</span>
           )}
           <span className="skill-score font-mono font-bold">{skill.score}</span>
           <span className="skill-max text-xs text-muted">/100</span>
         </div>
       </div>
 
-      <div className="progress-bar-track" aria-hidden="true">
+      <div className="skill-bar-track">
         <div 
-          className="progress-bar-fill"
+          className="skill-bar-fill"
           style={{ 
-            width: `${skill.score}%`,
+            width: `${Math.min(100, Math.max(5, skill.score))}%`,
             backgroundColor: status.barColor 
           }}
         />
       </div>
-
-      <style>{`
-        .skill-bar-row {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          padding: 8px 0;
-          transition: background-color var(--transition-fast);
-        }
-
-        .interactive-row {
-          cursor: pointer;
-          border-radius: var(--radius-sm);
-          padding: 8px 10px;
-        }
-
-        .interactive-row:hover {
-          background-color: var(--bg-subtle);
-        }
-
-        .skill-bar-info {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .skill-meta-left {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-        }
-
-        .skill-name {
-          font-size: 0.9rem;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-
-        .skill-meta-right {
-          display: flex;
-          align-items: baseline;
-          gap: 4px;
-        }
-
-        .skill-delta {
-          margin-right: 4px;
-          font-weight: 600;
-        }
-
-        .skill-score {
-          font-size: 0.95rem;
-          color: var(--text-primary);
-        }
-
-        .skill-max {
-          font-size: 0.72rem;
-        }
-      `}</style>
     </div>
   );
 };

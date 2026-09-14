@@ -5,12 +5,17 @@ import {
   BarChart2, 
   AlertCircle, 
   CheckCircle2,
-  Sliders
+  Sliders,
+  Sparkles,
+  Target,
+  Clock,
+  Zap
 } from 'lucide-react';
 import { SkillData, StudentProfile, InteractiveChallenge, CareerMatch, NavigationTab } from '../types';
 import { SkillBar } from '../components/SkillBar';
 import { RadarChart } from '../components/RadarChart';
 import { soundFx } from '../services/audioService';
+import { StorageAdapter } from '../services/storageAdapter';
 
 interface DashboardViewProps {
   profile: StudentProfile;
@@ -33,21 +38,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const [snapshotMode, setSnapshotMode] = useState<'bars' | 'radar'>('bars');
 
-  const strongestSkill = [...skills].sort((a, b) => b.score - a.score)[0];
-  const weakestSkill = [...skills].sort((a, b) => a.score - b.score)[0];
+  const assessedSkills = skills.filter((s) => s.score !== null);
+  const unassessedSkills = skills.filter((s) => s.score === null);
+
+  const strongestSkill = assessedSkills.length > 0 
+    ? [...assessedSkills].sort((a, b) => (b.score || 0) - (a.score || 0))[0] 
+    : null;
+
+  const weakestSkill = assessedSkills.length > 0 
+    ? [...assessedSkills].sort((a, b) => (a.score || 0) - (b.score || 0))[0] 
+    : null;
+
+  const recentActivity = StorageAdapter.getActivityLogs(profile.id).slice(0, 4);
 
   const handleContinueClick = () => {
     soundFx.playClick();
     onStartChallenge(continueChallenge);
   };
 
+  // Dynamic daily missions
+  const mission1 = unassessedSkills[0] 
+    ? `Assess ${unassessedSkills[0].name} baseline`
+    : `Drill ${weakestSkill?.name || 'Logic'} challenge`;
+  const mission2 = 'Review updated career compatibility matches';
+
   return (
     <div className="dashboard-page">
       {/* 1. Header Greeting & Status Overview */}
       <section className="dashboard-welcome-strip">
         <div className="welcome-text-col">
-          <h2 className="welcome-heading">Good morning, {profile.name}</h2>
-          <p className="welcome-sub">Ready to discover what you're capable of today?</p>
+          <h2 className="welcome-heading">Welcome back, {profile.name}</h2>
+          <p className="welcome-sub">
+            {assessedSkills.length === 0
+              ? "Let's discover your authentic strengths through empirical problem-solving diagnostics."
+              : `Your empirical diagnostic profile has ${assessedSkills.length} of 8 competencies calibrated.`}
+          </p>
         </div>
 
         <div className="welcome-stats-strip">
@@ -73,24 +98,46 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </section>
 
-      {/* 2. CONTINUE CHALLENGE (Main Horizontal Module - NOT an ordinary card) */}
+      {/* Zero Assessments Callout for Brand New Users */}
+      {assessedSkills.length === 0 && (
+        <section className="card p-6 border border-accent/40 bg-accent/5 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles size={18} className="text-accent" />
+              <h3 className="text-base font-bold text-foreground">Begin Your First Competency Assessment</h3>
+            </div>
+            <p className="text-xs text-muted max-w-xl">
+              You haven't completed any challenges yet. Unlike subjective surveys, Skill Detective evaluates what you can do through active algorithmic code runs, logic deduction, and quantitative analysis.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm flex-shrink-0"
+            onClick={handleContinueClick}
+          >
+            <Play size={14} />
+            <span>Start Baseline Challenge</span>
+          </button>
+        </section>
+      )}
+
+      {/* 2. CONTINUE CHALLENGE (Main Horizontal Module) */}
       <section className="continue-challenge-banner" aria-label="Continue Active Challenge">
         <div className="continue-left">
           <div className="continue-tag-row">
-            <span className="continue-kicker">CONTINUE CHALLENGE</span>
+            <span className="continue-kicker">RECOMMENDED ASSESSMENT</span>
             <span className="badge badge-indigo">{continueChallenge.categoryLabel}</span>
             <span className="badge badge-neutral">{continueChallenge.estimatedMinutes} min</span>
             <span className="badge badge-neutral">+{continueChallenge.xpReward} XP</span>
           </div>
           <h3 className="continue-title">{continueChallenge.title}</h3>
-          <p className="continue-prompt">Can you identify the missing numerical progression and deduction pattern?</p>
+          <p className="continue-prompt">{continueChallenge.instructions || 'Empirical problem-solving evaluation.'}</p>
 
           <div className="continue-progress-meta">
             <div className="inline-progress">
-              <div className="progress-bar-track" style={{ width: '130px', height: '6px' }}>
-                <div className="progress-bar-fill" style={{ width: '70%', backgroundColor: 'var(--accent-indigo)' }} />
-              </div>
-              <span className="text-xs text-muted font-mono">Progress: 7 / 10</span>
+              <span className="text-xs text-muted font-mono">
+                Assessed: {assessedSkills.length} / 8 Competencies
+              </span>
             </div>
           </div>
         </div>
@@ -102,7 +149,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             onClick={handleContinueClick}
           >
             <Play size={16} />
-            <span>Continue Challenge</span>
+            <span>Launch Diagnostic</span>
           </button>
         </div>
       </section>
@@ -113,32 +160,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="card score-summary-card">
           <div className="card-header">
             <div>
-              <span className="text-xs font-bold text-muted uppercase tracking-wider">YOUR OVERALL SKILL SCORE</span>
+              <span className="text-xs font-bold text-muted uppercase tracking-wider">OVERALL BASELINE SCORE</span>
               <div className="score-big-row">
-                <span className="score-number font-mono font-extrabold">{profile.overallScore}</span>
-                <span className="score-max text-muted font-mono">/ 100</span>
-                <span className="badge badge-success score-delta-badge">
-                  +{profile.scoreDelta} pts
+                <span className="score-number font-mono font-extrabold">
+                  {profile.overallScore !== null ? profile.overallScore : '--'}
                 </span>
+                <span className="score-max text-muted font-mono">/ 100</span>
+                {profile.overallScore !== null && profile.scoreDelta !== 0 && (
+                  <span className={`badge ${profile.scoreDelta > 0 ? 'badge-success' : 'badge-warning'} score-delta-badge font-mono`}>
+                    {profile.scoreDelta > 0 ? `+${profile.scoreDelta}` : profile.scoreDelta} pts
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
           <p className="score-interpret-text">
-            You're currently performing <strong>above average</strong> across the 8 assessed competencies.
+            {profile.overallScore !== null
+              ? `Calibrated across ${assessedSkills.length} evaluated competencies.`
+              : 'Complete your first diagnostic test to calibrate your empirical score.'}
           </p>
 
           <div className="score-extremes-row">
             <div className="extreme-box extreme-strong">
-              <span className="extreme-label">Strongest Competency</span>
-              <strong className="extreme-name">{strongestSkill.name}</strong>
-              <span className="font-mono text-sm font-bold text-success">{strongestSkill.score} / 100</span>
+              <span className="extreme-label">Demonstrated Strength</span>
+              <strong className="extreme-name">{strongestSkill?.name || 'Pending Data'}</strong>
+              <span className="font-mono text-sm font-bold text-success">
+                {strongestSkill ? `${strongestSkill.score} / 100` : '--'}
+              </span>
             </div>
 
             <div className="extreme-box extreme-opportunity">
-              <span className="extreme-label">Target for Growth</span>
-              <strong className="extreme-name">{weakestSkill.name}</strong>
-              <span className="font-mono text-sm font-bold text-warning">{weakestSkill.score} / 100</span>
+              <span className="extreme-label">High-Leverage Growth</span>
+              <strong className="extreme-name">{weakestSkill?.name || 'Pending Data'}</strong>
+              <span className="font-mono text-sm font-bold text-warning">
+                {weakestSkill ? `${weakestSkill.score} / 100` : '--'}
+              </span>
             </div>
           </div>
 
@@ -148,51 +205,56 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="btn btn-ghost text-accent btn-sm"
               onClick={() => onNavigate('skills')}
             >
-              <span>View Full Skill Profile</span>
+              <span>View Full Skill Breakdown</span>
               <ArrowRight size={14} />
             </button>
           </div>
         </div>
 
-        {/* Personalized Opportunity Banner */}
+        {/* Personalized Daily Mission Card */}
         <div className="card opportunity-card">
           <div className="opportunity-header">
-            <AlertCircle size={18} className="text-warning" />
-            <h4 className="opportunity-title">Personalized Skill Opportunity</h4>
+            <Target size={18} className="text-accent" />
+            <h4 className="opportunity-title">Personalized Daily Missions</h4>
           </div>
-          <p className="opportunity-text">
-            Your <strong>Coding score (58)</strong> is currently your highest-leverage growth area. Closing edge-case bugs will boost your Software Developer match from 87% to 94%.
-          </p>
 
-          <div className="opportunity-action-box">
-            <div className="opp-meta">
-              <span className="badge badge-warning">High Impact</span>
-              <span className="text-xs text-muted font-mono">+120 XP</span>
+          <div className="space-y-2 mt-2">
+            <div className="p-2.5 bg-surface-raised border border-subtle rounded-md flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={14} className={assessedSkills.length > 0 ? 'text-success' : 'text-muted'} />
+                <span className="font-medium text-foreground">{mission1}</span>
+              </div>
+              <span className="font-mono text-accent font-bold">+50 XP</span>
             </div>
+
+            <div className="p-2.5 bg-surface-raised border border-subtle rounded-md flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={14} className={topCareers[0]?.isSaved ? 'text-success' : 'text-muted'} />
+                <span className="font-medium text-foreground">{mission2}</span>
+              </div>
+              <span className="font-mono text-accent font-bold">+25 XP</span>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-subtle flex justify-between items-center">
+            <span className="text-xs text-muted">Streak Cadence: {profile.streakDays} days active</span>
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary btn-xs"
               onClick={() => onNavigate('challenges')}
             >
-              Practice Coding
+              Explore Tests
             </button>
-          </div>
-
-          <div className="recent-streak-alert">
-            <CheckCircle2 size={16} className="text-success flex-shrink-0" />
-            <span className="text-xs">
-              7-Day Streak Active: Your consistency accelerated your score by +8 points!
-            </span>
           </div>
         </div>
       </div>
 
-      {/* 4. YOUR SKILL SNAPSHOT (Horizontal Skill Bars with Radar toggle) */}
+      {/* 4. YOUR SKILL SNAPSHOT (Skill Bars with Radar toggle) */}
       <section className="snapshot-section">
         <div className="snapshot-header">
           <div>
-            <h3 className="section-title">Your Skill Snapshot</h3>
-            <p className="text-sm text-muted">A live calibration of your assessed cognitive and technical aptitudes.</p>
+            <h3 className="section-title">Cognitive & Technical Snapshot</h3>
+            <p className="text-sm text-muted">A live calibration of your assessed aptitudes.</p>
           </div>
 
           <div className="view-mode-toggle">
@@ -237,7 +299,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {skills.map((s) => (
                   <div key={s.id} className="radar-legend-item">
                     <span className="legend-name text-xs">{s.name}</span>
-                    <span className="font-mono font-bold text-xs">{s.score}</span>
+                    <span className="font-mono font-bold text-xs">
+                      {s.score !== null ? s.score : '--'}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -246,50 +310,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         )}
       </section>
 
-      {/* 5. Top Career Matches Preview */}
-      <section className="career-preview-section">
-        <div className="snapshot-header">
+      {/* 5. Top Career Compatibility Matches */}
+      <section className="top-careers-section">
+        <div className="section-heading-row">
           <div>
             <h3 className="section-title">Top Career Matches</h3>
-            <p className="text-sm text-muted">Roles showing the highest alignment with your verified competencies.</p>
+            <p className="text-sm text-muted">
+              {assessedSkills.length === 0
+                ? 'Complete assessments to unlock empirical career matches.'
+                : 'Algorithmic alignment based on your verified performance data.'}
+            </p>
           </div>
-
           <button
             type="button"
-            className="btn btn-ghost text-accent"
+            className="btn btn-secondary btn-sm"
             onClick={() => onNavigate('careers')}
           >
-            <span>View All 8 Careers</span>
-            <ArrowRight size={15} />
+            <span>View All Careers</span>
+            <ArrowRight size={14} />
           </button>
         </div>
 
-        <div className="careers-preview-grid">
+        <div className="top-careers-grid">
           {topCareers.slice(0, 3).map((career) => (
-            <div key={career.id} className="card career-preview-card card-hover">
-              <div className="career-card-top">
-                <span className="badge badge-indigo font-bold">{career.matchPercentage}% Match</span>
+            <div 
+              key={career.id} 
+              className="card career-match-card interactive-card"
+              onClick={() => onSelectCareer(career)}
+            >
+              <div className="career-match-top">
+                <span className="career-title font-bold">{career.title}</span>
+                <span className="badge badge-accent font-mono font-bold">
+                  {career.matchPercentage > 0 ? `${career.matchPercentage}% Match` : 'Uncalibrated'}
+                </span>
+              </div>
+              <p className="career-desc text-xs text-muted">{career.description}</p>
+              
+              <div className="career-card-footer">
                 <span className="text-xs text-muted font-mono">{career.salaryRange}</span>
-              </div>
-              <h4 className="career-card-title">{career.title}</h4>
-              <p className="career-card-desc text-xs">{career.description}</p>
-
-              <div className="career-card-reasons">
-                <span className="text-xs font-bold text-muted">Why it aligns:</span>
-                <ul className="reasons-bullets">
-                  {career.whyItMatches.slice(0, 2).map((r, i) => (
-                    <li key={i} className="text-xs text-secondary">• {r}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="career-card-actions">
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm full-width-mobile"
-                  onClick={() => onSelectCareer(career)}
+                  className="btn btn-ghost btn-xs text-accent"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectCareer(career);
+                  }}
                 >
-                  Explore Career Details
+                  Inspect Roadmap →
                 </button>
               </div>
             </div>
@@ -297,462 +364,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </section>
 
-      <style>{`
-        .dashboard-page {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-5);
-          width: 100%;
-        }
-
-        .dashboard-welcome-strip {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding-bottom: var(--space-4);
-          border-bottom: 1px solid var(--border-subtle);
-          flex-wrap: wrap;
-          gap: var(--space-3);
-        }
-
-        .welcome-heading {
-          font-size: 1.5rem;
-          color: var(--primary-900);
-        }
-
-        .welcome-sub {
-          font-size: 0.9rem;
-          color: var(--text-secondary);
-        }
-
-        .welcome-stats-strip {
-          display: flex;
-          align-items: center;
-          gap: var(--space-3);
-          background-color: var(--bg-surface);
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-md);
-          padding: 8px var(--space-3);
-          flex-wrap: wrap;
-        }
-
-        .summary-stat-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 0 4px;
-        }
-
-        .stat-label {
-          font-size: 0.65rem;
-          font-weight: 700;
-          color: var(--text-muted);
-          letter-spacing: 0.05em;
-        }
-
-        .stat-val {
-          font-size: 0.9rem;
-        }
-
-        .stat-divider {
-          width: 1px;
-          height: 22px;
-          background-color: var(--border-color);
-        }
-
-        .text-streak {
-          color: #C2410C;
-        }
-
-        /* Continue Challenge Banner */
-        .continue-challenge-banner {
-          background-color: var(--primary-800);
-          color: #FFFFFF;
-          border-radius: var(--radius-xl);
-          padding: var(--space-5);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--space-4);
-          box-shadow: var(--shadow-sm);
-        }
-
-        .continue-left {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-2);
-        }
-
-        .continue-tag-row {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          flex-wrap: wrap;
-        }
-
-        .continue-kicker {
-          font-size: 0.7rem;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          color: var(--accent-amber);
-        }
-
-        .continue-title {
-          font-size: 1.3rem;
-          color: #FFFFFF;
-        }
-
-        .continue-prompt {
-          font-size: 0.9rem;
-          color: #CBD5E1;
-        }
-
-        .continue-progress-meta {
-          margin-top: var(--space-1);
-        }
-
-        .inline-progress {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-        }
-
-        .continue-right {
-          flex-shrink: 0;
-        }
-
-        /* Dashboard Grid 2 */
-        .dashboard-grid-2 {
-          display: grid;
-          grid-template-columns: 1.15fr 1fr;
-          gap: var(--space-4);
-        }
-
-        .score-summary-card {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-        }
-
-        .score-big-row {
-          display: flex;
-          align-items: baseline;
-          margin-top: 4px;
-          flex-wrap: wrap;
-          gap: 4px;
-        }
-
-        .score-number {
-          font-size: 2.5rem;
-          color: var(--primary-800);
-          line-height: 1;
-        }
-
-        .score-max {
-          font-size: 1.1rem;
-        }
-
-        .score-delta-badge {
-          margin-left: 6px;
-        }
-
-        .score-interpret-text {
-          font-size: 0.9rem;
-          margin: var(--space-2) 0;
-        }
-
-        .score-extremes-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: var(--space-2);
-          margin-top: var(--space-2);
-        }
-
-        .extreme-box {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          padding: 8px 10px;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border-subtle);
-          background-color: var(--bg-subtle);
-        }
-
-        .extreme-label {
-          font-size: 0.68rem;
-          color: var(--text-muted);
-          font-weight: 600;
-        }
-
-        .extreme-name {
-          font-size: 0.85rem;
-          color: var(--text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .card-footer-action {
-          margin-top: var(--space-3);
-          display: flex;
-          justify-content: flex-end;
-        }
-
-        /* Opportunity Card */
-        .opportunity-card {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-2);
-        }
-
-        .opportunity-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .opportunity-title {
-          font-size: 1.0rem;
-        }
-
-        .opportunity-text {
-          font-size: 0.88rem;
-          line-height: 1.45;
-        }
-
-        .opportunity-action-box {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 12px;
-          background-color: var(--bg-subtle);
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border-subtle);
-          margin-top: 4px;
-        }
-
-        .opp-meta {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .recent-streak-alert {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: auto;
-          padding-top: var(--space-2);
-          color: var(--text-secondary);
-        }
-
-        /* Snapshot Section */
-        .snapshot-section {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-3);
-        }
-
-        .snapshot-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: var(--space-2);
-        }
-
-        .section-title {
-          font-size: 1.15rem;
-          color: var(--primary-900);
-        }
-
-        .view-mode-toggle {
-          display: flex;
-          background-color: var(--bg-subtle);
-          border-radius: var(--radius-md);
-          padding: 2px;
-          border: 1px solid var(--border-color);
-        }
-
-        .toggle-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          padding: 4px 10px;
-          font-size: 0.78rem;
-          font-weight: 600;
-          color: var(--text-secondary);
-          border-radius: var(--radius-sm);
-          transition: all var(--transition-fast);
-        }
-
-        .toggle-active {
-          background-color: var(--bg-surface);
-          color: var(--primary-800);
-          box-shadow: var(--shadow-xs);
-        }
-
-        .snapshot-bars-card {
-          padding: var(--space-4) var(--space-5);
-        }
-
-        .skill-bars-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: var(--space-2) var(--space-6);
-        }
-
-        .radar-layout {
-          display: flex;
-          align-items: center;
-          justify-content: space-around;
-          flex-wrap: wrap;
-          gap: var(--space-3);
-          padding: var(--space-2);
-        }
-
-        .radar-legend-list {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 6px 12px;
-        }
-
-        .radar-legend-item {
-          display: flex;
-          justify-content: space-between;
-          gap: 8px;
-          padding: 4px 8px;
-          background-color: var(--bg-subtle);
-          border-radius: var(--radius-sm);
-        }
-
-        /* Careers Preview */
-        .career-preview-section {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-3);
-        }
-
-        .careers-preview-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: var(--space-3);
-        }
-
-        .career-preview-card {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-2);
-        }
-
-        .career-card-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .career-card-title {
-          font-size: 1.05rem;
-          margin-top: 2px;
-        }
-
-        .career-card-desc {
-          color: var(--text-muted);
-          line-height: 1.4;
-          height: 36px;
-          overflow: hidden;
-        }
-
-        .career-card-reasons {
-          margin: var(--space-1) 0;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .reasons-bullets {
-          list-style: none;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .career-card-actions {
-          margin-top: auto;
-          padding-top: var(--space-2);
-        }
-
-        /* Responsive Breakpoints */
-        @media (max-width: 900px) {
-          .dashboard-grid-2 {
-            grid-template-columns: 1fr;
-          }
-          .skill-bars-grid {
-            grid-template-columns: 1fr;
-          }
-          .careers-preview-grid {
-            grid-template-columns: 1fr;
-          }
-          .continue-challenge-banner {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .continue-cta-btn {
-            width: 100%;
-          }
-          .full-width-mobile {
-            width: 100%;
-          }
-        }
-
-        @media (max-width: 600px) {
-          .score-extremes-row {
-            grid-template-columns: 1fr;
-          }
-          .welcome-stats-strip {
-            width: 100%;
-            justify-content: space-between;
-          }
-          .hide-on-xs {
-            display: none;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .welcome-stats-strip {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px;
-            padding: 8px;
-          }
-          .summary-stat-item {
-            align-items: flex-start;
-            padding: 4px 6px;
-            background-color: var(--bg-subtle);
-            border-radius: var(--radius-sm);
-          }
-          .welcome-heading {
-            font-size: 1.25rem;
-          }
-          .continue-title {
-            font-size: 1.15rem;
-          }
-          .score-number {
-            font-size: 2.1rem;
-          }
-          .snapshot-header {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-          .view-mode-toggle {
-            width: 100%;
-          }
-          .toggle-btn {
-            flex: 1;
-            justify-content: center;
-          }
-        }
-      `}</style>
+      {/* 6. Recent Activity Timeline */}
+      {recentActivity.length > 0 && (
+        <section className="card p-5 mt-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Clock size={16} className="text-muted" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted">Recent Verified Activity</h4>
+          </div>
+          <div className="space-y-2">
+            {recentActivity.map((log) => (
+              <div key={log.id} className="flex justify-between items-center text-xs py-1.5 border-b border-subtle last:border-none">
+                <div className="flex items-center gap-2 text-foreground">
+                  <CheckCircle2 size={13} className="text-success flex-shrink-0" />
+                  <span>{log.eventDescription}</span>
+                </div>
+                <span className="text-muted font-mono flex-shrink-0">
+                  {new Date(log.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

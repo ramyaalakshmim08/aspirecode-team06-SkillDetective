@@ -16,6 +16,7 @@ import { soundFx } from '../services/audioService';
 
 interface OnboardingModalProps {
   isOpen: boolean;
+  profile?: StudentProfile;
   onClose: () => void;
   onComplete: (updatedProfile: Partial<StudentProfile>) => void;
   onLaunchFirstChallenge: () => void;
@@ -23,14 +24,15 @@ interface OnboardingModalProps {
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   isOpen,
+  profile,
   onClose,
   onComplete,
   onLaunchFirstChallenge
 }) => {
   const [step, setStep] = useState(1);
-  const [name, setName] = useState('Saif');
-  const [department, setDepartment] = useState('Computer Engineering');
-  const [year, setYear] = useState('2nd Year');
+  const [name, setName] = useState(profile?.name || '');
+  const [department, setDepartment] = useState(profile?.department && profile.department !== 'Undeclared' ? profile.department : '');
+  const [year, setYear] = useState(profile?.year || '1st Year');
   
   const interestOptions = [
     'Technology',
@@ -41,11 +43,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     'Communication',
     'Creative Work'
   ];
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([
-    'Technology',
-    'Data',
-    'Problem Solving'
-  ]);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>(
+    profile?.interests && profile.interests.length > 0 ? profile.interests : []
+  );
 
   const skillOptions = [
     'Python',
@@ -59,11 +59,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     'Data Analysis',
     'Problem Solving'
   ];
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([
-    'Python',
-    'SQL',
-    'Problem Solving'
-  ]);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(
+    profile?.existingSkills && profile.existingSkills.length > 0 ? profile.existingSkills : []
+  );
 
   if (!isOpen) return null;
 
