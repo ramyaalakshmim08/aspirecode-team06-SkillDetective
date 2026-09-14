@@ -24,7 +24,7 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 320 }) =>
 
   // Generate data polygon points
   const points = skills.map((skill, index) => {
-    const coords = getCoordinates(index, skill.score / 100);
+    const coords = getCoordinates(index, (skill.score ?? 0) / 100);
     return `${coords.x},${coords.y}`;
   }).join(' ');
 
@@ -74,7 +74,7 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 320 }) =>
 
         {/* Data Points */}
         {skills.map((skill, index) => {
-          const coords = getCoordinates(index, skill.score / 100);
+          const coords = getCoordinates(index, (skill.score ?? 0) / 100);
           return (
             <circle
               key={skill.id}
