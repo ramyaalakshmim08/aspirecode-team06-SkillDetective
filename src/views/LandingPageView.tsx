@@ -6,28 +6,31 @@ import {
   Briefcase, 
   Compass, 
   CheckCircle2, 
-  Flame, 
-  Zap, 
-  ShieldCheck, 
-  Play,
-  Layers,
-  Code2,
-  Users
+  LogIn,
+  Play
 } from 'lucide-react';
 import { soundFx } from '../services/audioService';
 
 interface LandingPageViewProps {
   onStartAssessment: () => void;
   onEnterDashboard: () => void;
+  onOpenLogin?: () => void;
+  onOpenSignup?: () => void;
 }
 
 export const LandingPageView: React.FC<LandingPageViewProps> = ({
   onStartAssessment,
-  onEnterDashboard
+  onEnterDashboard,
+  onOpenLogin,
+  onOpenSignup
 }) => {
   const handleStart = () => {
     soundFx.playClick();
-    onStartAssessment();
+    if (onOpenSignup) {
+      onOpenSignup();
+    } else {
+      onStartAssessment();
+    }
   };
 
   const handleDashboard = () => {
@@ -71,6 +74,19 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             >
               <span>Explore Interactive Demo</span>
             </button>
+            {onOpenLogin && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-lg"
+                onClick={() => {
+                  soundFx.playClick();
+                  onOpenLogin();
+                }}
+              >
+                <LogIn size={16} />
+                <span>Sign In</span>
+              </button>
+            )}
           </div>
 
           <div className="hero-social-proof">
@@ -99,7 +115,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 <span className="dot" />
                 <span className="dot" />
               </div>
-              <span className="frame-url font-mono">skilldetective.edu/student/saif</span>
+              <span className="frame-url font-mono">skilldetective.edu/portal/student</span>
               <div className="frame-stats">
                 <span className="font-mono text-xs text-streak">🔥 7 days</span>
                 <span className="font-mono text-xs text-accent">1,240 XP</span>

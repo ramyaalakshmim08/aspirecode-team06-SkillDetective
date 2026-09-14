@@ -16,6 +16,7 @@ import { soundFx } from '../services/audioService';
 
 interface OnboardingModalProps {
   isOpen: boolean;
+  currentProfile?: StudentProfile;
   onClose: () => void;
   onComplete: (updatedProfile: Partial<StudentProfile>) => void;
   onLaunchFirstChallenge: () => void;
@@ -23,14 +24,15 @@ interface OnboardingModalProps {
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   isOpen,
+  currentProfile,
   onClose,
   onComplete,
   onLaunchFirstChallenge
 }) => {
   const [step, setStep] = useState(1);
-  const [name, setName] = useState('Saif');
-  const [department, setDepartment] = useState('Computer Engineering');
-  const [year, setYear] = useState('2nd Year');
+  const [name, setName] = useState(currentProfile?.name || 'Alex Chen');
+  const [department, setDepartment] = useState(currentProfile?.department || 'Computer Engineering');
+  const [year, setYear] = useState(currentProfile?.year || '1st Year');
   
   const interestOptions = [
     'Technology',
@@ -181,7 +183,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   className="form-input"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Saif"
+                  placeholder="e.g. Alex Chen"
                 />
               </div>
 

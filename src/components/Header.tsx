@@ -1,22 +1,50 @@
 import React, { useState } from 'react';
-import { Flame, Heart, Zap, Bell, CheckCircle2, ChevronRight, Menu } from 'lucide-react';
+import { 
+  Flame, 
+  Heart, 
+  Zap, 
+  Bell, 
+  CheckCircle2, 
+  ChevronRight, 
+  Menu, 
+  User, 
+  Users, 
+  Settings, 
+  LogOut, 
+  LogIn, 
+  UserPlus, 
+  ChevronDown
+} from 'lucide-react';
 import { StudentProfile, NavigationTab } from '../types';
+import { UserAccount } from '../types/auth';
+import { soundFx } from '../services/audioService';
 
 interface HeaderProps {
   currentTab: NavigationTab;
   profile: StudentProfile;
+  currentUser: UserAccount | null;
   onNavigate: (tab: NavigationTab) => void;
   onOpenMobileMenu?: () => void;
+  onOpenLogin: () => void;
+  onOpenSignup: () => void;
+  onOpenUserManagement: () => void;
+  onLogout: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
   currentTab, 
   profile, 
+  currentUser,
   onNavigate,
-  onOpenMobileMenu 
+  onOpenMobileMenu,
+  onOpenLogin,
+  onOpenSignup,
+  onOpenUserManagement,
+  onLogout
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showStreakModal, setShowStreakModal] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const breadcrumbLabels: Record<NavigationTab, { parent: string; title: string }> = {
     dashboard: { parent: 'Overview', title: 'Dashboard' },
@@ -31,31 +59,39 @@ export const Header: React.FC<HeaderProps> = ({
     landing: { parent: 'Preview', title: 'Overview' }
   };
 
-  const notifications = [
+  const dynamicNotifications = [
     {
       id: 1,
-      title: '7-Day Streak Achieved!',
-      desc: 'You unlocked the 7-Day Consistency badge and earned +100 XP.',
-      time: '1h ago',
+      title: `${profile.streakDays}-Day Habit Streak`,
+      desc: profile.streakDays > 1 
+        ? `You have maintained active diagnostic consistency for ${profile.streakDays} consecutive days.`
+        : 'Complete today’s diagnostic challenge to build your consistency streak.',
+      time: 'Today',
       unread: true
     },
     {
       id: 2,
-      title: 'Attention to Detail Calibrated',
-      desc: 'Your recent spot-the-difference assessment scored 91 (+7 points).',
-      time: 'Yesterday',
+      title: `Skill Score: ${profile.overallScore}% Verified`,
+      desc: `Your cognitive calibration is active across 8 measured dimensions with ${profile.lives} attempts remaining.`,
+      time: 'Active',
       unread: false
     },
     {
       id: 3,
-      title: 'New Career Match Unlocked',
-      desc: 'Based on your recent scores, QA Engineer now matches at 88%.',
-      time: '2 days ago',
+      title: `Level ${profile.level} Investigator`,
+      desc: `Current total XP: ${profile.xp.toLocaleString()}. Next evaluation milestone at ${profile.nextLevelXp.toLocaleString()} XP.`,
+      time: 'Milestone',
       unread: false
     }
   ];
 
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  const closeAllDropdowns = () => {
+    setShowNotifications(false);
+    setShowStreakModal(false);
+    setShowUserDropdown(false);
+  };
 
   return (
     <header className="app-header" role="banner">
@@ -79,16 +115,20 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Gamification Status Indicators */}
+      {/* Right: Gamification Status Indicators & User Controls */}
       <div className="header-right">
         {/* Streak Button */}
         <div className="relative-container">
           <button
             type="button"
             className="stat-pill streak-pill"
-            onClick={() => setShowStreakModal(!showStreakModal)}
-            title="7-Day Streak: Click to view details"
-            aria-label="7 Day Streak"
+            onClick={() => {
+              setShowStreakModal(!showStreakModal);
+              setShowNotifications(false);
+              setShowUserDropdown(false);
+            }}
+            title={`${profile.streakDays}-Day Streak: Click to view habit progress`}
+            aria-label={`${profile.streakDays} Day Streak`}
           >
             <Flame size={15} className="streak-icon" />
             <span className="hide-on-mobile">{profile.streakDays} days</span>
@@ -100,20 +140,20 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="popover-header">
                 <div className="popover-title-row">
                   <Flame size={18} className="streak-icon" />
-                  <strong>7 DAY STREAK</strong>
+                  <strong>{profile.streakDays} DAY STREAK</strong>
                 </div>
-                <p className="text-xs text-muted">Keep your streak alive by solving 1 challenge daily.</p>
+                <p className="text-xs text-muted">Keep your streak active by solving at least 1 diagnostic challenge daily.</p>
               </div>
               <div className="streak-days-grid">
                 {daysOfWeek.map((day, idx) => (
-                  <div key={day} className={`streak-day-box ${idx <= 6 ? 'streak-day-active' : ''}`}>
+                  <div key={day} className={`streak-day-box ${idx < Math.min(7, profile.streakDays) ? 'streak-day-active' : ''}`}>
                     <span className="day-name">{day}</span>
                     <CheckCircle2 size={15} className="day-check" />
                   </div>
                 ))}
               </div>
               <div className="popover-footer">
-                <span className="text-xs">Next reward: <strong>+50 XP</strong> on Day 10</span>
+                <span className="text-xs">Next milestone bonus: <strong>+100 XP</strong> on Day 7</span>
               </div>
             </div>
           )}
@@ -137,7 +177,11 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             className="header-icon-btn"
-            onClick={() => setShowNotifications(!showNotifications)}
+            onClick={() => {
+              setShowNotifications(!showNotifications);
+              setShowStreakModal(false);
+              setShowUserDropdown(false);
+            }}
             aria-label="Notifications"
           >
             <Bell size={17} />
@@ -147,11 +191,11 @@ export const Header: React.FC<HeaderProps> = ({
           {showNotifications && (
             <div className="header-popover notifications-popover" role="dialog">
               <div className="popover-header">
-                <strong>Notifications</strong>
+                <strong>Diagnostic Alerts</strong>
                 <span className="text-xs text-muted">1 unread</span>
               </div>
               <div className="notifications-list">
-                {notifications.map((notif) => (
+                {dynamicNotifications.map((notif) => (
                   <div key={notif.id} className={`notification-item ${notif.unread ? 'unread-item' : ''}`}>
                     <div className="notification-title-row">
                       <span className="notif-title">{notif.title}</span>
@@ -172,21 +216,129 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Student Avatar & Level */}
-        <button
-          type="button"
-          className="user-profile-btn"
-          onClick={() => onNavigate('profile')}
-          aria-label="View Student Profile"
-        >
-          <div className="user-avatar-circle">
-            {profile.name.charAt(0)}
+        {/* User Profile / Auth Controls */}
+        {currentUser ? (
+          <div className="relative-container">
+            <button
+              type="button"
+              className="user-profile-btn"
+              onClick={() => {
+                setShowUserDropdown(!showUserDropdown);
+                setShowNotifications(false);
+                setShowStreakModal(false);
+              }}
+              aria-label="User Account Menu"
+              aria-expanded={showUserDropdown}
+            >
+              <div className="user-avatar-circle">
+                {currentUser.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="user-info-text hide-on-mobile">
+                <span className="user-name">{currentUser.name}</span>
+                <span className="user-level-badge">Lvl {profile.level}</span>
+              </div>
+              <ChevronDown size={14} className="dropdown-caret hide-on-mobile" />
+            </button>
+
+            {showUserDropdown && (
+              <div className="header-popover user-dropdown-popover" role="menu">
+                {/* Account Summary */}
+                <div className="user-dropdown-header">
+                  <div className="user-dropdown-avatar">
+                    {currentUser.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="user-dropdown-info">
+                    <strong className="user-dropdown-name">{currentUser.name}</strong>
+                    <span className="user-dropdown-email text-xs text-muted font-mono">{currentUser.email}</span>
+                    <div className="user-dropdown-badges">
+                      <span className="badge badge-indigo text-xs">{currentUser.department}</span>
+                      <span className="badge badge-gray text-xs">{currentUser.year}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dropdown Menu Items */}
+                <div className="user-dropdown-items">
+                  <button
+                    type="button"
+                    className="dropdown-item-btn"
+                    onClick={() => {
+                      onNavigate('profile');
+                      closeAllDropdowns();
+                    }}
+                  >
+                    <User size={15} />
+                    <span>My Student Profile</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="dropdown-item-btn"
+                    onClick={() => {
+                      onOpenUserManagement();
+                      closeAllDropdowns();
+                    }}
+                  >
+                    <Users size={15} />
+                    <span>Switch User / Manage Accounts</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="dropdown-item-btn"
+                    onClick={() => {
+                      onNavigate('settings');
+                      closeAllDropdowns();
+                    }}
+                  >
+                    <Settings size={15} />
+                    <span>Settings & Preferences</span>
+                  </button>
+
+                  <div className="dropdown-divider" />
+
+                  <button
+                    type="button"
+                    className="dropdown-item-btn logout-btn"
+                    onClick={() => {
+                      soundFx.playClick();
+                      onLogout();
+                      closeAllDropdowns();
+                    }}
+                  >
+                    <LogOut size={15} />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="user-info-text hide-on-mobile">
-            <span className="user-name">{profile.name}</span>
-            <span className="user-level-badge">Lvl {profile.level}</span>
+        ) : (
+          <div className="guest-auth-actions">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                soundFx.playClick();
+                onOpenLogin();
+              }}
+            >
+              <LogIn size={14} />
+              <span className="hide-on-mobile">Sign In</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => {
+                soundFx.playClick();
+                onOpenSignup();
+              }}
+            >
+              <UserPlus size={14} />
+              <span>Create Account</span>
+            </button>
           </div>
-        </button>
+        )}
       </div>
 
       <style>{`
@@ -221,6 +373,7 @@ export const Header: React.FC<HeaderProps> = ({
           color: var(--text-primary);
           background-color: var(--bg-subtle);
           border: 1px solid var(--border-color);
+          cursor: pointer;
         }
 
         .header-breadcrumbs {
@@ -264,9 +417,16 @@ export const Header: React.FC<HeaderProps> = ({
         .streak-pill {
           color: #C2410C;
           background-color: #FFF7ED;
-          border-color: #FFEDD5;
+          border: 1px solid #FFEDD5;
           cursor: pointer;
           padding: 4px 8px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          border-radius: var(--radius-full);
+          font-size: 0.82rem;
+          font-weight: 600;
+          transition: background-color var(--transition-fast);
         }
 
         .streak-pill:hover {
@@ -281,8 +441,14 @@ export const Header: React.FC<HeaderProps> = ({
         .xp-pill {
           color: var(--accent-indigo);
           background-color: var(--accent-indigo-subtle);
-          border-color: #C7D2FE;
+          border: 1px solid #C7D2FE;
           padding: 4px 8px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          border-radius: var(--radius-full);
+          font-size: 0.82rem;
+          font-weight: 600;
         }
 
         .xp-icon {
@@ -292,29 +458,34 @@ export const Header: React.FC<HeaderProps> = ({
 
         .lives-pill {
           background-color: var(--bg-subtle);
+          border: 1px solid var(--border-color);
           display: flex;
           align-items: center;
           gap: 4px;
           padding: 4px 8px;
+          border-radius: var(--radius-full);
+          font-size: 0.82rem;
+          font-weight: 600;
         }
 
         .heart-filled {
-          color: #DC2626;
-          fill: #DC2626;
+          color: #EF4444;
+          fill: #EF4444;
         }
 
         .header-icon-btn {
           width: 32px;
           height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-full);
           border: 1px solid var(--border-color);
           background-color: var(--bg-surface);
           color: var(--text-secondary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
           position: relative;
-          transition: background-color var(--transition-fast);
+          transition: all var(--transition-fast);
         }
 
         .header-icon-btn:hover {
@@ -324,31 +495,36 @@ export const Header: React.FC<HeaderProps> = ({
 
         .notification-badge {
           position: absolute;
-          top: -3px;
-          right: -3px;
-          width: 14px;
-          height: 14px;
+          top: -2px;
+          right: -2px;
+          width: 15px;
+          height: 15px;
           border-radius: 50%;
-          background-color: var(--accent-indigo);
-          color: #FFFFFF;
+          background-color: var(--color-danger);
+          color: white;
           font-size: 0.65rem;
           font-weight: 700;
           display: flex;
           align-items: center;
           justify-content: center;
+          border: 2px solid var(--bg-surface);
         }
 
         .header-popover {
           position: absolute;
           top: calc(100% + 8px);
           right: 0;
-          width: 290px;
           background-color: var(--bg-surface);
           border: 1px solid var(--border-color);
           border-radius: var(--radius-lg);
-          box-shadow: var(--shadow-md);
+          box-shadow: var(--shadow-lg);
           padding: var(--space-3);
           z-index: 50;
+          animation: slideUp 0.15s ease-out;
+        }
+
+        .streak-popover {
+          width: 280px;
         }
 
         .popover-header {
@@ -402,7 +578,7 @@ export const Header: React.FC<HeaderProps> = ({
         }
 
         .notifications-popover {
-          width: 290px;
+          width: 300px;
         }
 
         .notifications-list {
@@ -422,8 +598,8 @@ export const Header: React.FC<HeaderProps> = ({
         }
 
         .notification-item.unread-item {
-          background-color: var(--accent-indigo-subtle);
-          border-color: #C7D2FE;
+          background-color: var(--color-indigo-subtle);
+          border-color: var(--color-indigo-border);
         }
 
         .notification-title-row {
@@ -453,6 +629,9 @@ export const Header: React.FC<HeaderProps> = ({
           color: var(--accent-indigo);
           text-align: center;
           border-radius: var(--radius-sm);
+          background: none;
+          border: none;
+          cursor: pointer;
         }
 
         .popover-footer-btn:hover {
@@ -463,10 +642,11 @@ export const Header: React.FC<HeaderProps> = ({
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          padding: 3px 6px 3px 3px;
+          padding: 3px 8px 3px 3px;
           border-radius: var(--radius-full);
           border: 1px solid var(--border-color);
           background-color: var(--bg-surface);
+          cursor: pointer;
           transition: background-color var(--transition-fast);
         }
 
@@ -475,13 +655,13 @@ export const Header: React.FC<HeaderProps> = ({
         }
 
         .user-avatar-circle {
-          width: 26px;
-          height: 26px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
-          background-color: var(--primary-800);
+          background-color: var(--accent-indigo);
           color: #FFFFFF;
           font-weight: 700;
-          font-size: 0.75rem;
+          font-size: 0.8rem;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -491,7 +671,6 @@ export const Header: React.FC<HeaderProps> = ({
           display: flex;
           align-items: center;
           gap: 6px;
-          padding-right: 4px;
         }
 
         .user-name {
@@ -508,6 +687,102 @@ export const Header: React.FC<HeaderProps> = ({
           padding: 1px 5px;
           border-radius: var(--radius-full);
           border: 1px solid var(--border-color);
+        }
+
+        .dropdown-caret {
+          color: var(--text-muted);
+        }
+
+        .user-dropdown-popover {
+          width: 290px;
+        }
+
+        .user-dropdown-header {
+          display: flex;
+          gap: 10px;
+          padding-bottom: var(--space-3);
+          border-bottom: 1px solid var(--border-subtle);
+          margin-bottom: var(--space-2);
+        }
+
+        .user-dropdown-avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: var(--radius-full);
+          background-color: var(--accent-indigo);
+          color: white;
+          font-weight: 700;
+          font-size: 1.1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .user-dropdown-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+
+        .user-dropdown-name {
+          font-size: 0.92rem;
+          color: var(--text-primary);
+        }
+
+        .user-dropdown-badges {
+          display: flex;
+          gap: 4px;
+          margin-top: 4px;
+          flex-wrap: wrap;
+        }
+
+        .user-dropdown-items {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .dropdown-item-btn {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px;
+          border-radius: var(--radius-md);
+          border: none;
+          background: transparent;
+          color: var(--text-primary);
+          font-size: 0.82rem;
+          font-weight: 500;
+          cursor: pointer;
+          text-align: left;
+          width: 100%;
+          transition: background-color var(--transition-fast);
+        }
+
+        .dropdown-item-btn:hover {
+          background-color: var(--bg-subtle);
+        }
+
+        .dropdown-divider {
+          height: 1px;
+          background-color: var(--border-subtle);
+          margin: 4px 0;
+        }
+
+        .logout-btn {
+          color: var(--color-danger);
+        }
+
+        .logout-btn:hover {
+          background-color: var(--color-danger-subtle);
+        }
+
+        .guest-auth-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
         .show-on-mobile {
@@ -539,9 +814,9 @@ export const Header: React.FC<HeaderProps> = ({
           .header-right {
             gap: 4px;
           }
-          .notifications-popover, .streak-popover {
-            width: 260px;
-            right: -20px;
+          .notifications-popover, .streak-popover, .user-dropdown-popover {
+            width: 270px;
+            right: -10px;
           }
         }
 
@@ -551,7 +826,7 @@ export const Header: React.FC<HeaderProps> = ({
           }
           .header-left {
             gap: 6px;
-            max-width: 44%;
+            max-width: 40%;
             min-width: 0;
           }
           .header-title {
@@ -561,7 +836,7 @@ export const Header: React.FC<HeaderProps> = ({
             white-space: nowrap;
           }
           .header-right {
-            gap: 3px;
+            gap: 4px;
           }
           .stat-pill {
             padding: 3px 6px;
@@ -569,11 +844,6 @@ export const Header: React.FC<HeaderProps> = ({
           }
           .user-profile-btn {
             padding: 2px;
-          }
-          .notifications-popover, .streak-popover {
-            width: 270px;
-            max-width: calc(100vw - 16px);
-            right: -8px;
           }
         }
       `}</style>

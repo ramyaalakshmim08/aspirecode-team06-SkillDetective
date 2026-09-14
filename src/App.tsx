@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { NavigationTab, StudentProfile, SkillData, InteractiveChallenge, CareerMatch } from './types';
-import { initialStudentProfile } from './data/studentProfileData';
+import { UserAccount, AuthModalMode } from './types/auth';
+import { authService } from './services/authService';
+import { guestProfile } from './data/studentProfileData';
 import { initialSkillsData } from './data/skillsData';
 import { challengesData } from './data/challengesData';
 import { careersData } from './data/careersData';
@@ -13,6 +15,8 @@ import { BottomNav } from './components/BottomNav';
 import { OnboardingModal } from './components/OnboardingModal';
 import { ChallengeRunner } from './components/ChallengeRunner';
 import { CareerDetailModal } from './components/CareerDetailModal';
+import { AuthModal } from './components/AuthModal';
+import { UserManagementModal } from './components/UserManagementModal';
 
 import { DashboardView } from './views/DashboardView';
 import { ChallengesView } from './views/ChallengesView';
@@ -29,33 +33,46 @@ export const App: React.FC = () => {
   // Navigation & View State
   const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
 
+  // Authenticated User Session
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => authService.getCurrentUser());
+
   // Core Data States
-  const [profile, setProfile] = useState<StudentProfile>(initialStudentProfile);
-  const [skills, setSkills] = useState<SkillData[]>(initialSkillsData);
-  const [challenges, setChallenges] = useState<InteractiveChallenge[]>(challengesData);
+  const [profile, setProfile] = useState<StudentProfile>(() => currentUser?.profile || guestProfile);
+  const [skills, setSkills] = useState<SkillData[]>(() => currentUser?.skills || initialSkillsData);
+  const [challenges, setChallenges] = useState<InteractiveChallenge[]>(() => currentUser?.challenges || challengesData);
   const [careers] = useState<CareerMatch[]>(careersData);
-  const [achievements, setAchievements] = useState(achievementsData);
-  const [learningPaths] = useState(learningPathsData);
+  const [achievements, setAchievements] = useState(() => currentUser?.achievements || achievementsData);
+  const [learningPaths] = useState(() => currentUser?.learningPaths || learningPathsData);
 
   // Modals & Active Runners
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(() => {
+    const hasVisited = localStorage.getItem('skill_detective_visited_v2');
+    if (!hasVisited && !authService.getCurrentUser()) {
+      localStorage.setItem('skill_detective_visited_v2', 'true');
+      return true;
+    }
+    return false;
+  });
   const [activeChallenge, setActiveChallenge] = useState<InteractiveChallenge | null>(null);
   const [selectedCareer, setSelectedCareer] = useState<CareerMatch | null>(null);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
-  // Check if first visit
-  useEffect(() => {
-    const hasVisited = localStorage.getItem('skill_detective_visited');
-    if (!hasVisited) {
-      setIsOnboardingOpen(true);
-      localStorage.setItem('skill_detective_visited', 'true');
-    }
-  }, []);
+  // Auth & User Management Modals
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<AuthModalMode>('login');
+  const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
 
   // Smooth scroll to top whenever navigation tab changes
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   }, [currentTab]);
+
+  // Sync state back to persistent storage whenever active user's data changes
+  useEffect(() => {
+    if (currentUser) {
+      authService.saveUserProgress(currentUser.id, profile, skills, challenges, achievements);
+    }
+  }, [currentUser, profile, skills, challenges, achievements]);
 
   // Keyboard shortcut listener (Escape to close modals & drawer)
   useEffect(() => {
@@ -65,11 +82,13 @@ export const App: React.FC = () => {
         if (activeChallenge) setActiveChallenge(null);
         if (selectedCareer) setSelectedCareer(null);
         if (isOnboardingOpen) setIsOnboardingOpen(false);
+        if (isAuthModalOpen) setIsAuthModalOpen(false);
+        if (isUserManagementOpen) setIsUserManagementOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeChallenge, selectedCareer, isOnboardingOpen, isMobileDrawerOpen]);
+  }, [activeChallenge, selectedCareer, isOnboardingOpen, isMobileDrawerOpen, isAuthModalOpen, isUserManagementOpen]);
 
   // Handle Challenge Completion
   const handleChallengeComplete = (challengeId: string, earnedXp: number, scoreGained: number) => {
@@ -125,10 +144,50 @@ export const App: React.FC = () => {
       ...prev,
       ...updated
     }));
+    if (currentUser) {
+      authService.updateUserProfile(currentUser.id, updated);
+    }
   };
 
   const handleStartCareerPath = () => {
     setCurrentTab('learning-path');
+  };
+
+  // Auth Handlers
+  const handleOpenLogin = () => {
+    setAuthModalMode('login');
+    setIsAuthModalOpen(true);
+  };
+
+  const handleOpenSignup = () => {
+    setAuthModalMode('signup');
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = () => {
+    const user = authService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+      setProfile(user.profile);
+      setSkills(user.skills);
+      setChallenges(user.challenges);
+      setAchievements(user.achievements);
+    }
+  };
+
+  const handleUserSwitched = (switchedUser: UserAccount) => {
+    setCurrentUser(switchedUser);
+    setProfile(switchedUser.profile);
+    setSkills(switchedUser.skills);
+    setChallenges(switchedUser.challenges);
+    setAchievements(switchedUser.achievements);
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setCurrentUser(null);
+    setProfile(guestProfile);
+    setCurrentTab('landing');
   };
 
   const continueChallenge = challenges.find((c) => c.id === 'logic-pattern-detective') || challenges[0];
@@ -139,6 +198,7 @@ export const App: React.FC = () => {
       {currentTab !== 'landing' && (
         <Sidebar
           currentTab={currentTab}
+          currentUser={currentUser}
           onNavigate={(tab) => {
             setCurrentTab(tab);
             setIsMobileDrawerOpen(false);
@@ -147,6 +207,8 @@ export const App: React.FC = () => {
             setIsOnboardingOpen(true);
             setIsMobileDrawerOpen(false);
           }}
+          onOpenLogin={handleOpenLogin}
+          onOpenUserManagement={() => setIsUserManagementOpen(true)}
           isMobileOpen={isMobileDrawerOpen}
           onCloseMobile={() => setIsMobileDrawerOpen(false)}
         />
@@ -158,8 +220,13 @@ export const App: React.FC = () => {
         <Header
           currentTab={currentTab}
           profile={profile}
+          currentUser={currentUser}
           onNavigate={(tab) => setCurrentTab(tab)}
           onOpenMobileMenu={() => setIsMobileDrawerOpen(true)}
+          onOpenLogin={handleOpenLogin}
+          onOpenSignup={handleOpenSignup}
+          onOpenUserManagement={() => setIsUserManagementOpen(true)}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic Main View */}
@@ -220,7 +287,9 @@ export const App: React.FC = () => {
           {currentTab === 'profile' && (
             <ProfileView
               profile={profile}
+              currentUser={currentUser}
               onUpdateProfile={handleUpdateProfile}
+              onOpenUserManagement={() => setIsUserManagementOpen(true)}
             />
           )}
 
@@ -231,16 +300,21 @@ export const App: React.FC = () => {
           {currentTab === 'landing' && (
             <LandingPageView
               onStartAssessment={() => {
-                setCurrentTab('dashboard');
-                setIsOnboardingOpen(true);
+                if (currentUser) {
+                  setCurrentTab('dashboard');
+                } else {
+                  handleOpenSignup();
+                }
               }}
               onEnterDashboard={() => setCurrentTab('dashboard')}
+              onOpenLogin={handleOpenLogin}
+              onOpenSignup={handleOpenSignup}
             />
           )}
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation with 5 tabs including 'More' drawer toggle */}
+      {/* Mobile Bottom Navigation */}
       {currentTab !== 'landing' && (
         <BottomNav
           currentTab={currentTab}
@@ -252,6 +326,7 @@ export const App: React.FC = () => {
       {/* Onboarding Modal */}
       <OnboardingModal
         isOpen={isOnboardingOpen}
+        currentProfile={profile}
         onClose={() => setIsOnboardingOpen(false)}
         onComplete={(updated) => {
           handleUpdateProfile(updated);
@@ -280,6 +355,27 @@ export const App: React.FC = () => {
           onStartLearningPath={handleStartCareerPath}
         />
       )}
+
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        initialMode={authModalMode}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+      />
+
+      {/* User Management Directory Modal */}
+      <UserManagementModal
+        isOpen={isUserManagementOpen}
+        currentUser={currentUser}
+        onClose={() => setIsUserManagementOpen(false)}
+        onUserSwitched={handleUserSwitched}
+        onOpenSignUp={() => {
+          setIsUserManagementOpen(false);
+          handleOpenSignup();
+        }}
+        onLogout={handleLogout}
+      />
 
       <style>{`
         .landing-mode-wrapper {

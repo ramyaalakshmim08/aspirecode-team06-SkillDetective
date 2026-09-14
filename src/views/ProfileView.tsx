@@ -6,41 +6,118 @@ import {
   Edit3, 
   Save, 
   X,
-  Shield
+  Shield,
+  Lock,
+  Mail,
+  Users,
+  Download,
+  AlertCircle,
+  KeyRound,
+  Calendar
 } from 'lucide-react';
 import { StudentProfile } from '../types';
+import { UserAccount } from '../types/auth';
+import { authService } from '../services/authService';
 import { soundFx } from '../services/audioService';
 
 interface ProfileViewProps {
   profile: StudentProfile;
+  currentUser?: UserAccount | null;
   onUpdateProfile: (updated: Partial<StudentProfile>) => void;
+  onOpenUserManagement?: () => void;
 }
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ 
+  profile, 
+  currentUser,
+  onUpdateProfile,
+  onOpenUserManagement
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(profile.name);
   const [department, setDepartment] = useState(profile.department);
   const [year, setYear] = useState(profile.year);
   const [saveToast, setSaveToast] = useState(false);
 
+  // Password Change States
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [pwdMessage, setPwdMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [copiedExport, setCopiedExport] = useState(false);
+
   const handleSave = () => {
     soundFx.playSuccess();
     onUpdateProfile({ name, department, year });
+    if (currentUser) {
+      authService.updateUserProfile(currentUser.id, { name, department, year });
+    }
     setIsEditing(false);
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 3000);
   };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdMessage(null);
+
+    if (!currentUser) return;
+
+    if (newPassword !== confirmNewPassword) {
+      setPwdMessage({ type: 'error', text: 'New passwords do not match.' });
+      soundFx.playWarning();
+      return;
+    }
+
+    const result = authService.changePassword(currentUser.id, oldPassword, newPassword);
+    if (result.success) {
+      soundFx.playSuccess();
+      setPwdMessage({ type: 'success', text: 'Password successfully updated.' });
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setTimeout(() => setShowPasswordChange(false), 2000);
+    } else {
+      soundFx.playWarning();
+      setPwdMessage({ type: 'error', text: result.error || 'Password update failed.' });
+    }
+  };
+
+  const handleExportData = () => {
+    if (!currentUser) return;
+    soundFx.playClick();
+    const dataStr = authService.exportUserData(currentUser.id);
+    navigator.clipboard.writeText(dataStr);
+    setCopiedExport(true);
+    setTimeout(() => setCopiedExport(false), 3000);
+  };
+
+  const studentId = currentUser 
+    ? `SD-${currentUser.id.slice(-6).toUpperCase()}`
+    : 'SD-CADET-01';
 
   return (
     <div className="profile-page">
       {/* Header */}
       <div className="profile-top-strip">
         <div>
-          <h2 className="page-heading">Student Profile</h2>
-          <p className="page-subtitle">Your academic identity, diagnostic credentials, and verified skill achievements.</p>
+          <h2 className="page-heading">Student Profile & Credentials</h2>
+          <p className="page-subtitle">Your verified academic identity, diagnostic scores, and authenticated account settings.</p>
         </div>
 
-        <div>
+        <div className="top-actions-cluster">
+          {onOpenUserManagement && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={onOpenUserManagement}
+            >
+              <Users size={14} />
+              <span>Switch / Manage Accounts</span>
+            </button>
+          )}
+
           {isEditing ? (
             <div className="edit-actions-group">
               <button
@@ -76,7 +153,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
       {saveToast && (
         <div className="save-toast-alert">
           <Check size={16} className="text-success flex-shrink-0" />
-          <span>Profile information successfully updated.</span>
+          <span>Profile information successfully updated and saved to active account.</span>
         </div>
       )}
 
@@ -84,7 +161,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
       <div className="card student-card">
         <div className="student-profile-row">
           <div className="avatar-big-circle font-bold">
-            {profile.name.charAt(0)}
+            {profile.name.charAt(0).toUpperCase()}
           </div>
 
           <div className="student-details-col">
@@ -95,7 +172,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="edit-input"
-                  placeholder="Student Name"
+                  placeholder="Student Full Name"
                 />
                 <div className="edit-dual-row">
                   <input
@@ -103,29 +180,39 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
                     className="edit-input"
-                    placeholder="Department"
+                    placeholder="Department / Major"
                   />
                   <input
                     type="text"
                     value={year}
                     onChange={(e) => setYear(e.target.value)}
                     className="edit-input"
-                    placeholder="Year"
+                    placeholder="Academic Year"
                   />
                 </div>
               </div>
             ) : (
               <div>
-                <h3 className="student-display-name">{profile.name}</h3>
+                <div className="name-email-row">
+                  <h3 className="student-display-name">{profile.name}</h3>
+                  {currentUser?.email && (
+                    <span className="student-email-tag font-mono text-xs">
+                      <Mail size={12} /> {currentUser.email}
+                    </span>
+                  )}
+                </div>
                 <p className="student-academic-line">
                   {profile.department} • <span>{profile.year}</span>
+                  {currentUser?.role && (
+                    <span className="role-tag"> • {currentUser.role.toUpperCase()}</span>
+                  )}
                 </p>
               </div>
             )}
 
             <div className="badge-credential-row">
               <span className="badge badge-indigo font-bold">Level {profile.level} Investigator</span>
-              <span className="badge badge-neutral">ID: SD-2026-0842</span>
+              <span className="badge badge-neutral">ID: {studentId}</span>
               <span className="badge badge-success">Verified Academic Account</span>
             </div>
           </div>
@@ -159,6 +246,92 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
         </div>
       </div>
 
+      {/* Account Security & Data Management Box */}
+      {currentUser && (
+        <div className="card security-box">
+          <div className="security-header-row">
+            <div className="sec-title-wrap">
+              <KeyRound size={18} className="text-accent" />
+              <div>
+                <h4 className="box-section-title">Account Security & Credentials</h4>
+                <p className="text-xs text-muted">Manage authenticated credentials, password, and portable diagnostics data.</p>
+              </div>
+            </div>
+
+            <div className="sec-actions-wrap">
+              <button
+                type="button"
+                className="btn btn-secondary btn-xs"
+                onClick={handleExportData}
+              >
+                {copiedExport ? <Check size={13} className="text-success" /> : <Download size={13} />}
+                <span>{copiedExport ? 'Dossier Copied!' : 'Export Skill JSON'}</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-xs"
+                onClick={() => setShowPasswordChange(!showPasswordChange)}
+              >
+                <Lock size={13} />
+                <span>{showPasswordChange ? 'Cancel' : 'Change Password'}</span>
+              </button>
+            </div>
+          </div>
+
+          {showPasswordChange && (
+            <form className="password-change-form" onSubmit={handlePasswordSubmit}>
+              <div className="pwd-grid">
+                <div className="form-group">
+                  <label className="text-xs font-bold">Current Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter current password"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    className="edit-input"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="text-xs font-bold">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Min 6 characters"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="edit-input"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="text-xs font-bold">Confirm New Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Re-type new password"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="edit-input"
+                  />
+                </div>
+              </div>
+
+              {pwdMessage && (
+                <div className={`pwd-status ${pwdMessage.type === 'error' ? 'pwd-error' : 'pwd-success'}`}>
+                  {pwdMessage.type === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}
+                  <span>{pwdMessage.text}</span>
+                </div>
+              )}
+
+              <button type="submit" className="btn btn-primary btn-sm align-self-start">
+                Update Password
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+
       {/* Interests & Existing Skills Section */}
       <div className="dual-info-grid">
         <div className="card">
@@ -168,11 +341,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
           </p>
 
           <div className="chips-wrap">
-            {profile.interests.map((interest) => (
-              <span key={interest} className="chip-badge">
-                {interest}
-              </span>
-            ))}
+            {profile.interests.length > 0 ? (
+              profile.interests.map((interest) => (
+                <span key={interest} className="chip-badge">
+                  {interest}
+                </span>
+              ))
+            ) : (
+              <span className="text-xs text-muted">No interests selected yet.</span>
+            )}
           </div>
         </div>
 
@@ -183,11 +360,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
           </p>
 
           <div className="chips-wrap">
-            {profile.existingSkills.map((skill) => (
-              <span key={skill} className="chip-badge chip-skill">
-                {skill}
-              </span>
-            ))}
+            {profile.existingSkills.length > 0 ? (
+              profile.existingSkills.map((skill) => (
+                <span key={skill} className="chip-badge chip-skill">
+                  {skill}
+                </span>
+              ))
+            ) : (
+              <span className="text-xs text-muted">No foundation skills selected yet.</span>
+            )}
           </div>
         </div>
       </div>
@@ -197,37 +378,47 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
         <div className="card-header">
           <div>
             <h4 className="box-section-title">Diagnostic Assessment History</h4>
-            <p className="text-xs text-muted">Complete audit trail of all standardized evaluations.</p>
+            <p className="text-xs text-muted">Complete audit trail of all standardized cognitive evaluations.</p>
           </div>
         </div>
 
-        <div className="table-scroll-wrapper">
-          <table className="history-table">
-            <thead>
-              <tr>
-                <th>Evaluation Milestone</th>
-                <th>Date</th>
-                <th>Score</th>
-                <th>Outcome</th>
-              </tr>
-            </thead>
-            <tbody>
-              {profile.assessmentHistory.map((rec) => (
-                <tr key={rec.assessmentNumber}>
-                  <td>
-                    <strong className="text-xs">{rec.label}</strong>
-                    <span className="text-xs text-muted block">Calibration #{rec.assessmentNumber}</span>
-                  </td>
-                  <td className="text-muted text-xs">{rec.date}</td>
-                  <td className="font-mono font-bold text-xs">{rec.score}/100</td>
-                  <td>
-                    <span className="badge badge-success text-xs">Calibrated</span>
-                  </td>
+        {profile.assessmentHistory.length > 0 ? (
+          <div className="table-scroll-wrapper">
+            <table className="history-table">
+              <thead>
+                <tr>
+                  <th>Evaluation Milestone</th>
+                  <th>Date</th>
+                  <th>Score</th>
+                  <th>Outcome</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {profile.assessmentHistory.map((rec) => (
+                  <tr key={rec.assessmentNumber}>
+                    <td>
+                      <strong className="text-xs">{rec.label}</strong>
+                      <span className="text-xs text-muted block">Calibration #{rec.assessmentNumber}</span>
+                    </td>
+                    <td className="text-muted text-xs">{rec.date}</td>
+                    <td className="font-mono font-bold text-xs">{rec.score}/100</td>
+                    <td>
+                      <span className="badge badge-success text-xs">Calibrated</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="empty-history-box">
+            <Calendar size={28} className="text-muted" />
+            <strong className="text-sm">No Formal Assessment Milestones Recorded Yet</strong>
+            <p className="text-xs text-muted">
+              Solve challenges in the Challenges tab to calibrate your skills and generate formal diagnostic records.
+            </p>
+          </div>
+        )}
       </div>
 
       <style>{`
@@ -246,19 +437,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
           gap: var(--space-3);
         }
 
+        .top-actions-cluster {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
         .page-heading {
           font-size: 1.45rem;
-          color: var(--primary-900);
+          font-weight: 800;
+          color: var(--text-primary);
         }
 
         .page-subtitle {
-          font-size: 0.9rem;
+          font-size: 0.84rem;
           color: var(--text-secondary);
-        }
-
-        .edit-actions-group {
-          display: flex;
-          gap: 6px;
+          margin-top: 2px;
         }
 
         .save-toast-alert {
@@ -271,13 +465,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
           border-radius: var(--radius-md);
           font-size: 0.82rem;
           color: var(--color-success);
+          animation: slideUp 0.15s ease-out;
         }
 
         .student-card {
+          padding: var(--space-5);
           display: flex;
           flex-direction: column;
           gap: var(--space-4);
-          padding: var(--space-5);
         }
 
         .student-profile-row {
@@ -287,40 +482,67 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
         }
 
         .avatar-big-circle {
-          width: 64px;
-          height: 64px;
-          border-radius: 50%;
-          background-color: var(--primary-800);
+          width: 68px;
+          height: 68px;
+          border-radius: var(--radius-full);
+          background-color: var(--accent-indigo);
           color: #FFFFFF;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 1.8rem;
           flex-shrink: 0;
+          box-shadow: var(--shadow-sm);
         }
 
         .student-details-col {
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 6px;
           min-width: 0;
+          flex: 1;
+        }
+
+        .name-email-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
         }
 
         .student-display-name {
-          font-size: 1.4rem;
-          color: var(--primary-900);
+          font-size: 1.35rem;
+          font-weight: 800;
+          color: var(--text-primary);
+        }
+
+        .student-email-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          background-color: var(--bg-subtle);
+          border-radius: var(--radius-sm);
+          color: var(--text-muted);
         }
 
         .student-academic-line {
-          font-size: 0.9rem;
+          font-size: 0.88rem;
           color: var(--text-secondary);
+          margin-top: 2px;
+        }
+
+        .role-tag {
+          font-weight: 700;
+          font-size: 0.75rem;
+          color: var(--accent-indigo);
         }
 
         .badge-credential-row {
           display: flex;
-          gap: 6px;
-          margin-top: 4px;
+          gap: 8px;
           flex-wrap: wrap;
+          margin-top: 4px;
         }
 
         .inline-edit-fields {
@@ -329,24 +551,36 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
           gap: 6px;
         }
 
-        .edit-input {
-          padding: 6px 10px;
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-md);
-          font-size: 0.85rem;
-        }
-
         .edit-dual-row {
           display: flex;
-          gap: 6px;
+          gap: 8px;
+        }
+
+        .edit-input {
+          padding: 7px 10px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border-color);
+          background-color: var(--bg-surface);
+          color: var(--text-primary);
+          font-size: 0.84rem;
+        }
+
+        .edit-input:focus {
+          border-color: var(--accent-indigo);
+          outline: none;
+        }
+
+        .edit-actions-group {
+          display: flex;
+          gap: 8px;
         }
 
         .profile-stats-triple {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: var(--space-3);
+          padding-top: var(--space-4);
           border-top: 1px solid var(--border-subtle);
-          padding-top: var(--space-3);
         }
 
         .p-stat-box {
@@ -362,28 +596,89 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
         .p-stat-text {
           display: flex;
           flex-direction: column;
+          gap: 2px;
         }
 
         .p-stat-label {
-          font-size: 0.65rem;
+          font-size: 0.68rem;
           font-weight: 700;
           color: var(--text-muted);
+          letter-spacing: 0.04em;
         }
 
-        .text-streak {
-          color: #EA580C;
+        .security-box {
+          padding: var(--space-4);
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+        }
+
+        .security-header-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: var(--space-2);
+        }
+
+        .sec-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .sec-actions-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .password-change-form {
+          margin-top: var(--space-2);
+          padding-top: var(--space-3);
+          border-top: 1px solid var(--border-subtle);
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+        }
+
+        .pwd-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: var(--space-3);
+        }
+
+        .pwd-status {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.78rem;
+          padding: 6px 10px;
+          border-radius: var(--radius-sm);
+        }
+
+        .pwd-error {
+          background-color: var(--color-danger-subtle);
+          color: var(--color-danger);
+          border: 1px solid var(--color-danger-border);
+        }
+
+        .pwd-success {
+          background-color: var(--color-success-subtle);
+          color: var(--color-success);
+          border: 1px solid var(--color-success-border);
         }
 
         .dual-info-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: var(--space-3);
+          gap: var(--space-4);
         }
 
         .box-section-title {
-          font-size: 1.0rem;
-          color: var(--primary-900);
-          margin-bottom: 2px;
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: var(--text-primary);
         }
 
         .chips-wrap {
@@ -393,7 +688,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
         }
 
         .chip-badge {
-          padding: 5px 10px;
+          display: inline-block;
+          padding: 4px 10px;
           background-color: var(--bg-subtle);
           border: 1px solid var(--border-color);
           border-radius: var(--radius-full);
@@ -403,38 +699,51 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
         }
 
         .chip-skill {
-          background-color: var(--accent-indigo-subtle);
-          border-color: #C7D2FE;
+          border-color: var(--color-indigo-border);
           color: var(--accent-indigo);
-          font-weight: 600;
+          background-color: var(--color-indigo-subtle);
         }
 
         .history-card {
-          overflow: hidden;
+          padding: var(--space-4);
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
         }
 
         .table-scroll-wrapper {
           overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
         }
 
         .history-table {
           width: 100%;
           border-collapse: collapse;
-          text-align: left;
-          font-size: 0.85rem;
-          min-width: 480px;
-        }
-
-        .history-table th, .history-table td {
-          padding: 8px 12px;
-          border-bottom: 1px solid var(--border-subtle);
+          font-size: 0.82rem;
         }
 
         .history-table th {
-          background-color: var(--bg-subtle);
-          font-weight: 600;
-          color: var(--text-secondary);
+          text-align: left;
+          padding: 8px 12px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          border-bottom: 1px solid var(--border-color);
+          text-transform: uppercase;
+        }
+
+        .history-table td {
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .empty-history-box {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: var(--space-6) var(--space-4);
+          text-align: center;
         }
 
         @media (max-width: 768px) {
@@ -444,17 +753,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfi
           .dual-info-grid {
             grid-template-columns: 1fr;
           }
-        }
-
-        @media (max-width: 500px) {
-          .student-profile-row {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-          .avatar-big-circle {
-            width: 52px;
-            height: 52px;
-            font-size: 1.5rem;
+          .pwd-grid {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>

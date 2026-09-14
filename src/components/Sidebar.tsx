@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   LayoutDashboard, 
   Target, 
@@ -8,25 +7,34 @@ import {
   Award, 
   TrendingUp, 
   User, 
-  Settings,
-  Sparkles,
-  HelpCircle,
-  X
+  Settings, 
+  Sparkles, 
+  HelpCircle, 
+  X,
+  Users,
+  LogIn
 } from 'lucide-react';
 import { NavigationTab } from '../types';
+import { UserAccount } from '../types/auth';
 
 interface SidebarProps {
   currentTab: NavigationTab;
+  currentUser: UserAccount | null;
   onNavigate: (tab: NavigationTab) => void;
   onOpenOnboarding: () => void;
+  onOpenLogin: () => void;
+  onOpenUserManagement: () => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   currentTab, 
+  currentUser,
   onNavigate, 
   onOpenOnboarding,
+  onOpenLogin,
+  onOpenUserManagement,
   isMobileOpen = false,
   onCloseMobile
 }) => {
@@ -152,6 +160,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="nav-label">Student Profile</span>
               </button>
             </li>
+            {currentUser ? (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenUserManagement();
+                    if (onCloseMobile) onCloseMobile();
+                  }}
+                  className="nav-btn"
+                >
+                  <span className="nav-icon"><Users size={18} /></span>
+                  <span className="nav-label">Manage Accounts</span>
+                </button>
+              </li>
+            ) : (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenLogin();
+                    if (onCloseMobile) onCloseMobile();
+                  }}
+                  className="nav-btn"
+                >
+                  <span className="nav-icon"><LogIn size={18} /></span>
+                  <span className="nav-label">Sign In / Register</span>
+                </button>
+              </li>
+            )}
             <li>
               <button
                 type="button"
