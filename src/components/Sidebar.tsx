@@ -19,8 +19,6 @@ interface SidebarProps {
   currentTab: NavigationTab;
   onNavigate: (tab: NavigationTab) => void;
   onOpenOnboarding: () => void;
-  role?: string;
-  onLogout?: () => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
 }
@@ -29,29 +27,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentTab, 
   onNavigate, 
   onOpenOnboarding,
-  role = 'student',
-  onLogout,
   isMobileOpen = false,
   onCloseMobile
 }) => {
   const navItems: { id: NavigationTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { id: 'challenges', label: 'Challenges', icon: <Target size={18} /> },
+    { id: 'challenges', label: 'Challenges', icon: <Target size={18} />, badge: '5 Ready' },
     { id: 'skills', label: 'Skill Profile', icon: <BarChart3 size={18} /> },
-    { id: 'careers', label: 'Career Matches', icon: <Briefcase size={18} /> },
+    { id: 'careers', label: 'Career Matches', icon: <Briefcase size={18} />, badge: '8 Roles' },
     { id: 'learning-path', label: 'Learning Path', icon: <Compass size={18} /> },
     { id: 'achievements', label: 'Achievements', icon: <Award size={18} /> },
     { id: 'progress', label: 'Progress', icon: <TrendingUp size={18} /> },
   ];
-
-  if (role === 'admin') {
-    navItems.push({
-      id: 'admin',
-      label: 'Admin Center',
-      icon: <Sparkles size={18} />,
-      badge: 'Admin'
-    });
-  }
 
   const handleItemClick = (id: NavigationTab) => {
     onNavigate(id);
@@ -124,18 +111,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </ul>
 
           {/* Explore Landing Page Mode */}
-          <div className="nav-section-label" style={{ marginTop: 'var(--space-6)' }}>PREVIEWS & REPORTS</div>
+          <div className="nav-section-label" style={{ marginTop: 'var(--space-6)' }}>PREVIEWS & TOURS</div>
           <ul className="nav-list">
-            <li>
-              <button
-                type="button"
-                onClick={() => handleItemClick('report')}
-                className={`nav-btn ${currentTab === 'report' ? 'nav-btn-active' : ''}`}
-              >
-                <span className="nav-icon"><Award size={18} /></span>
-                <span className="nav-label">Diagnostic Report</span>
-              </button>
-            </li>
             <li>
               <button
                 type="button"
@@ -185,21 +162,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="nav-label">Settings</span>
               </button>
             </li>
-            {onLogout && (
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onCloseMobile) onCloseMobile();
-                    onLogout();
-                  }}
-                  className="nav-btn text-danger hover:text-danger"
-                >
-                  <span className="nav-icon"><X size={18} /></span>
-                  <span className="nav-label">Sign Out</span>
-                </button>
-              </li>
-            )}
           </ul>
 
           <div className="sidebar-version-tag">

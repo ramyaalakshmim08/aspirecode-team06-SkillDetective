@@ -4,71 +4,40 @@ import {
   Award, 
   Target, 
   Briefcase, 
-  Flame,
-  Calendar
+  Flame
 } from 'lucide-react';
 import { StudentProfile, SkillData } from '../types';
-import { StorageAdapter } from '../services/storageAdapter';
 
 interface ProgressViewProps {
   profile: StudentProfile;
   skills: SkillData[];
 }
 
-export const ProgressView: React.FC<ProgressViewProps> = ({ profile, skills }) => {
+export const ProgressView: React.FC<ProgressViewProps> = ({ profile }) => {
   const history = profile.assessmentHistory;
-  const attempts = StorageAdapter.getChallengeAttempts(profile.id);
-  const correctAttempts = attempts.filter((a) => a.isCorrect);
-  const achievements = StorageAdapter.getUserAchievements(profile.id);
-  const unlockedAchievements = achievements.filter((a) => a.unlocked);
-  const activityLogs = StorageAdapter.getActivityLogs(profile.id);
 
   const chartWidth = 500;
   const chartHeight = 180;
   const padding = 40;
 
-  const minScore = 40;
+  const minScore = 50;
   const maxScore = 100;
 
-  const getX = (idx: number) => {
-    if (history.length <= 1) return chartWidth / 2;
-    return padding + (idx * (chartWidth - padding * 2)) / (history.length - 1);
-  };
+  const getX = (idx: number) => padding + (idx * (chartWidth - padding * 2)) / (history.length - 1);
+  const getY = (score: number) => chartHeight - padding - ((score - minScore) / (maxScore - minScore)) * (chartHeight - padding * 2);
 
-  const getY = (score: number) => {
-    return chartHeight - padding - ((score - minScore) / (maxScore - minScore)) * (chartHeight - padding * 2);
-  };
-
-  const points = history.length > 0
-    ? history.map((h, i) => `${getX(i)},${getY(h.score)}`).join(' ')
-    : '';
-
-  const totalGrowth = history.length >= 2
-    ? history[history.length - 1].score - history[0].score
-    : 0;
-
-  // Real 28-day activity heatmap based on activityLogs
-  const today = new Date();
-  const activityDates = new Set(
-    activityLogs.map((log) => new Date(log.createdAt).toISOString().split('T')[0])
-  );
+  const points = history.map((h, i) => `${getX(i)},${getY(h.score)}`).join(' ');
 
   const heatmapDays = Array.from({ length: 28 }).map((_, i) => {
-    const dayDate = new Date();
-    dayDate.setDate(today.getDate() - (27 - i));
-    const dateStr = dayDate.toISOString().split('T')[0];
-    return {
-      day: i + 1,
-      date: dateStr,
-      active: activityDates.has(dateStr)
-    };
+    const isActive = i >= 21 || (i % 3 !== 0 && i > 5);
+    return { day: i + 1, active: isActive };
   });
 
   return (
     <div className="progress-page">
       {/* Header */}
       <div>
-        <h2 className="page-heading">Progress Analytics & Longitudinal Trajectory</h2>
+        <h2 className="page-heading">Skill Progress & Trajectory</h2>
         <p className="page-subtitle">
           Longitudinal analytics tracking your diagnostic score improvements, assessment calibration, and consistency.
         </p>
@@ -78,22 +47,14 @@ export const ProgressView: React.FC<ProgressViewProps> = ({ profile, skills }) =
       <div className="kpi-grid">
         <div className="card kpi-card">
           <div className="kpi-top">
-            <span className="text-xs text-muted font-bold uppercase">OVERALL BASELINE</span>
+            <span className="text-xs text-muted font-bold uppercase">OVERALL PROGRESS</span>
             <TrendingUp size={16} className="text-accent" />
           </div>
           <div className="kpi-value-row">
-            <span className="kpi-number font-mono">
-              {profile.overallScore !== null ? `${profile.overallScore}%` : '--'}
-            </span>
-            {profile.overallScore !== null && profile.scoreDelta !== 0 && (
-              <span className={`badge ${profile.scoreDelta > 0 ? 'badge-success' : 'badge-warning'} text-xs font-mono`}>
-                {profile.scoreDelta > 0 ? `+${profile.scoreDelta}` : profile.scoreDelta} pts
-              </span>
-            )}
+            <span className="kpi-number font-mono">{profile.overallScore}%</span>
+            <span className="badge badge-success text-xs font-mono">+{profile.scoreDelta} pts</span>
           </div>
-          <span className="text-xs text-muted">
-            {skills.filter((s) => s.score !== null).length} of 8 competencies assessed
-          </span>
+          <span className="text-xs text-muted">Across 8 assessed competencies</span>
         </div>
 
         <div className="card kpi-card">
@@ -102,24 +63,22 @@ export const ProgressView: React.FC<ProgressViewProps> = ({ profile, skills }) =
             <Target size={16} className="text-warning" />
           </div>
           <div className="kpi-value-row">
-            <span className="kpi-number font-mono">{correctAttempts.length}</span>
-            <span className="text-sm text-muted font-mono">completed</span>
+            <span className="kpi-number font-mono">34</span>
+            <span className="text-sm text-muted font-mono">/ 50 total</span>
           </div>
-          <span className="text-xs text-muted">
-            {attempts.length} total diagnostic attempts
-          </span>
+          <span className="text-xs text-muted">68% curriculum completed</span>
         </div>
 
         <div className="card kpi-card">
           <div className="kpi-top">
-            <span className="text-xs text-muted font-bold uppercase">ACTIVITY STREAK</span>
-            <Flame size={16} className="text-accent" />
+            <span className="text-xs text-muted font-bold uppercase">CAREER MATCHES</span>
+            <Briefcase size={16} className="text-accent" />
           </div>
           <div className="kpi-value-row">
-            <span className="kpi-number font-mono">{profile.streakDays}</span>
-            <span className="text-sm text-muted font-mono">days</span>
+            <span className="kpi-number font-mono">8</span>
+            <span className="text-sm text-muted font-mono">roles</span>
           </div>
-          <span className="text-xs text-muted">Consecutive daily practice cadence</span>
+          <span className="text-xs text-muted">3 roles with ≥85% alignment</span>
         </div>
 
         <div className="card kpi-card">
@@ -128,157 +87,354 @@ export const ProgressView: React.FC<ProgressViewProps> = ({ profile, skills }) =
             <Award size={16} className="text-success" />
           </div>
           <div className="kpi-value-row">
-            <span className="kpi-number font-mono">{unlockedAchievements.length}</span>
-            <span className="text-sm text-muted font-mono">/ {achievements.length} earned</span>
+            <span className="kpi-number font-mono">4</span>
+            <span className="text-sm text-muted font-mono">/ 9 earned</span>
           </div>
-          <span className="text-xs text-muted">Verified empirical recognition</span>
+          <span className="text-xs text-muted">Next unlock: Logic Master (7/10)</span>
         </div>
       </div>
 
       {/* Skill Progress Over Time Chart Card */}
-      <div className="card chart-card mt-6">
+      <div className="card chart-card">
         <div className="card-header">
           <div>
             <h3 className="section-title">Score Progression Over Time</h3>
-            <p className="text-xs text-muted">
-              {history.length > 0 
-                ? `Empirical calibration across your ${history.length} formal diagnostic checkpoints.`
-                : 'Complete evaluations to plot your historical progress curve.'}
-            </p>
+            <p className="text-xs text-muted">Empirical calibration across your 3 formal diagnostic checkpoints.</p>
           </div>
-          {history.length >= 2 && (
-            <div className="chart-stat-badge font-mono text-xs">
-              <span>Trajectory: </span>
-              <strong className={totalGrowth >= 0 ? 'text-success' : 'text-warning'}>
-                {totalGrowth >= 0 ? `+${totalGrowth}` : totalGrowth} pts growth
-              </strong>
-            </div>
-          )}
+          <div className="chart-stat-badge font-mono text-xs">
+            <span>Trajectory: </span>
+            <strong className="text-success">+14 pts total growth</strong>
+          </div>
         </div>
 
-        {/* SVG Line Chart or Empty State */}
-        {history.length < 2 ? (
-          <div className="p-12 text-center text-muted text-xs border border-dashed border-subtle rounded-lg my-4">
-            <TrendingUp size={28} className="mx-auto mb-2 text-muted" />
-            <p className="font-medium text-foreground">Awaiting Additional Diagnostic Data</p>
-            <p className="max-w-sm mx-auto mt-1">
-              Your historical score progression line will appear here after completing at least 2 diagnostic assessments.
-            </p>
-          </div>
-        ) : (
-          <div className="chart-svg-container">
-            <svg width="100%" height="180" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet">
-              {[50, 60, 70, 80, 90, 100].map((val) => {
-                const y = getY(val);
-                return (
-                  <g key={val}>
-                    <line
-                      x1={padding}
-                      y1={y}
-                      x2={chartWidth - padding}
-                      y2={y}
-                      stroke="var(--border-subtle)"
-                      strokeWidth="1"
-                      strokeDasharray="4 4"
-                    />
-                    <text
-                      x={padding - 8}
-                      y={y + 3}
-                      textAnchor="end"
-                      fontSize="10"
-                      fill="var(--text-muted)"
-                      fontFamily="var(--font-mono)"
-                    >
-                      {val}
-                    </text>
-                  </g>
-                );
-              })}
+        {/* SVG Line Chart */}
+        <div className="chart-svg-container">
+          <svg width="100%" height="180" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet">
+            {[60, 70, 80, 90].map((val) => {
+              const y = getY(val);
+              return (
+                <g key={val}>
+                  <line
+                    x1={padding}
+                    y1={y}
+                    x2={chartWidth - padding}
+                    y2={y}
+                    stroke="var(--border-subtle)"
+                    strokeWidth="1"
+                    strokeDasharray="4 4"
+                  />
+                  <text
+                    x={padding - 8}
+                    y={y + 3}
+                    textAnchor="end"
+                    fontSize="10"
+                    fill="var(--text-muted)"
+                    fontFamily="var(--font-mono)"
+                  >
+                    {val}
+                  </text>
+                </g>
+              );
+            })}
 
-              <polyline
-                fill="none"
-                stroke="var(--accent-indigo)"
-                strokeWidth="3"
-                points={points}
-              />
+            <polyline
+              fill="none"
+              stroke="var(--accent-indigo)"
+              strokeWidth="3"
+              points={points}
+            />
 
-              {history.map((h, i) => {
-                const x = getX(i);
-                const y = getY(h.score);
-                return (
-                  <g key={h.assessmentNumber}>
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r="5"
-                      fill="var(--bg-surface)"
-                      stroke="var(--accent-indigo)"
-                      strokeWidth="3"
-                    />
-                    <text
-                      x={x}
-                      y={y - 10}
-                      textAnchor="middle"
-                      fontSize="11"
-                      fontWeight="bold"
-                      fill="var(--text-primary)"
-                      fontFamily="var(--font-mono)"
-                    >
-                      {h.score}
-                    </text>
-                    <text
-                      x={x}
-                      y={chartHeight - 12}
-                      textAnchor="middle"
-                      fontSize="10"
-                      fill="var(--text-muted)"
-                    >
-                      {h.date}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        )}
-      </div>
-
-      {/* Real 28-Day Habit Consistency Heatmap */}
-      <div className="card mt-6 p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar size={16} className="text-accent" />
-          <h4 className="text-xs font-bold uppercase tracking-wider text-muted">28-Day Practice Cadence Heatmap</h4>
+            {history.map((h, i) => {
+              const x = getX(i);
+              const y = getY(h.score);
+              return (
+                <g key={h.assessmentNumber}>
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="5"
+                    fill="var(--bg-surface)"
+                    stroke="var(--accent-indigo)"
+                    strokeWidth="3"
+                  />
+                  <text
+                    x={x}
+                    y={y - 12}
+                    textAnchor="middle"
+                    fontSize="12"
+                    fontWeight="700"
+                    fill="var(--text-primary)"
+                    fontFamily="var(--font-mono)"
+                  >
+                    {h.score}
+                  </text>
+                  <text
+                    x={x}
+                    y={chartHeight - 12}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fill="var(--text-muted)"
+                  >
+                    {h.date.split(',')[0]}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
         </div>
-        <p className="text-xs text-muted mb-4">
-          Visual record of daily practice sessions. Consistent daily drills build compound cognitive stamina.
-        </p>
 
-        <div className="grid grid-cols-7 sm:grid-cols-14 md:grid-cols-28 gap-1.5">
-          {heatmapDays.map((d) => (
-            <div
-              key={d.day}
-              className={`h-7 rounded flex items-center justify-center text-[10px] font-mono transition-colors ${
-                d.active 
-                  ? 'bg-emerald-600 text-white font-bold' 
-                  : 'bg-surface-raised border border-subtle text-muted'
-              }`}
-              title={`${d.date}: ${d.active ? 'Practice session recorded' : 'No activity'}`}
-            >
-              {d.day}
+        {/* Assessment Timeline Strip */}
+        <div className="assessment-history-timeline">
+          {history.map((h) => (
+            <div key={h.assessmentNumber} className="timeline-item">
+              <div className="timeline-num-circle font-mono font-bold">{h.assessmentNumber}</div>
+              <div className="timeline-info">
+                <span className="timeline-title">{h.label}</span>
+                <span className="text-xs text-muted">{h.date}</span>
+              </div>
+              <span className="timeline-score font-mono font-bold text-accent">{h.score} / 100</span>
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-end gap-2 text-xs text-muted mt-3">
-          <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded bg-surface-raised border border-subtle inline-block" />
-            <span>Idle</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded bg-emerald-600 inline-block" />
-            <span>Active Session</span>
-          </span>
+      </div>
+
+      {/* 4-Week Activity Heatmap */}
+      <div className="card streak-calendar-card">
+        <div className="card-header">
+          <div className="streak-header-title">
+            <Flame size={18} className="text-streak" />
+            <div>
+              <h3 className="section-title">Daily Practice (Past 4 Weeks)</h3>
+              <p className="text-xs text-muted">Daily challenges completed without breaking focus.</p>
+            </div>
+          </div>
+          <span className="badge badge-indigo font-mono">Streak: 7 Days</span>
+        </div>
+
+        <div className="heatmap-grid">
+          {heatmapDays.map((d) => (
+            <div
+              key={d.day}
+              className={`heatmap-box ${d.active ? 'heatmap-active' : 'heatmap-inactive'}`}
+              title={`Day ${d.day}: ${d.active ? 'Challenge Completed' : 'Rest Day'}`}
+            >
+              <span className="heatmap-day-num">{d.day}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="heatmap-legend">
+          <div className="legend-entry">
+            <span className="legend-swatch swatch-inactive" />
+            <span className="text-xs text-muted">Rest Day</span>
+          </div>
+          <div className="legend-entry">
+            <span className="legend-swatch swatch-active" />
+            <span className="text-xs text-muted">Challenge Solved</span>
+          </div>
         </div>
       </div>
+
+      <style>{`
+        .progress-page {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-4);
+          width: 100%;
+        }
+
+        .kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: var(--space-3);
+        }
+
+        .kpi-card {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+          padding: var(--space-4);
+        }
+
+        .kpi-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .kpi-value-row {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+        }
+
+        .kpi-number {
+          font-size: 1.6rem;
+          font-weight: 800;
+          color: var(--primary-900);
+          line-height: 1.1;
+        }
+
+        .chart-card {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+          padding: var(--space-4);
+        }
+
+        .chart-svg-container {
+          width: 100%;
+          background-color: var(--bg-subtle);
+          border-radius: var(--radius-md);
+          padding: var(--space-3);
+          border: 1px solid var(--border-subtle);
+          overflow-x: auto;
+        }
+
+        .assessment-history-timeline {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: var(--space-2);
+        }
+
+        .timeline-item {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          padding: var(--space-3);
+          background-color: var(--bg-subtle);
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-subtle);
+        }
+
+        .timeline-num-circle {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background-color: var(--primary-800);
+          color: #FFFFFF;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.75rem;
+          flex-shrink: 0;
+        }
+
+        .timeline-info {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .timeline-title {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .timeline-score {
+          font-size: 0.85rem;
+          flex-shrink: 0;
+        }
+
+        /* Streak Calendar Heatmap */
+        .streak-calendar-card {
+          padding: var(--space-4);
+        }
+
+        .streak-header-title {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+        }
+
+        .text-streak {
+          color: #EA580C;
+        }
+
+        .heatmap-grid {
+          display: grid;
+          grid-template-columns: repeat(14, 1fr);
+          gap: 6px;
+          margin: var(--space-3) 0;
+        }
+
+        .heatmap-box {
+          aspect-ratio: 1;
+          border-radius: var(--radius-xs);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.65rem;
+          font-family: var(--font-mono);
+          transition: transform var(--transition-fast);
+        }
+
+        .heatmap-box:hover {
+          transform: scale(1.1);
+        }
+
+        .heatmap-inactive {
+          background-color: var(--bg-subtle);
+          color: var(--text-muted);
+          border: 1px solid var(--border-subtle);
+        }
+
+        .heatmap-active {
+          background-color: #EA580C;
+          color: #FFFFFF;
+          font-weight: 700;
+        }
+
+        .heatmap-legend {
+          display: flex;
+          justify-content: flex-end;
+          gap: var(--space-3);
+        }
+
+        .legend-entry {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .legend-swatch {
+          width: 10px;
+          height: 10px;
+          border-radius: 2px;
+        }
+
+        .swatch-inactive {
+          background-color: var(--bg-subtle);
+          border: 1px solid var(--border-color);
+        }
+
+        .swatch-active {
+          background-color: #EA580C;
+        }
+
+        @media (max-width: 900px) {
+          .kpi-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .assessment-history-timeline {
+            grid-template-columns: 1fr;
+          }
+          .heatmap-grid {
+            grid-template-columns: repeat(7, 1fr);
+          }
+        }
+
+        @media (max-width: 480px) {
+          .kpi-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </div>
   );
 };

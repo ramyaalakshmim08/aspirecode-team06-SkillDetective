@@ -13,23 +13,21 @@ import { soundFx } from '../services/audioService';
 
 interface LearningPathViewProps {
   learningPaths: LearningPath[];
-  userId?: string;
   onNavigate: (tab: NavigationTab) => void;
 }
 
 export const LearningPathView: React.FC<LearningPathViewProps> = ({
   learningPaths,
-  userId,
   onNavigate
 }) => {
-  const [selectedPathId, setSelectedPathId] = useState(learningPaths[0]?.id || '');
+  const [selectedPathId, setSelectedPathId] = useState(learningPaths[0].id);
   const [localPaths, setLocalPaths] = useState<LearningPath[]>(learningPaths);
 
   const activePath = localPaths.find(p => p.id === selectedPathId) || localPaths[0];
 
-  const allLessons = activePath ? activePath.weeks.flatMap(w => w.lessons) : [];
+  const allLessons = activePath.weeks.flatMap(w => w.lessons);
   const completedLessons = allLessons.filter(l => l.completed);
-  const progressPercent = allLessons.length > 0 ? Math.round((completedLessons.length / allLessons.length) * 100) : 0;
+  const progressPercent = Math.round((completedLessons.length / allLessons.length) * 100);
 
   const toggleLesson = (weekNum: number, lessonId: string) => {
     soundFx.playClick();
@@ -45,11 +43,6 @@ export const LearningPathView: React.FC<LearningPathViewProps> = ({
               if (l.id !== lessonId) return l;
               const willBeCompleted = !l.completed;
               if (willBeCompleted) soundFx.playSuccess();
-              if (userId) {
-                import('../services/learningService').then(({ LearningService }) => {
-                  LearningService.toggleLesson(userId, lessonId, willBeCompleted);
-                });
-              }
               return { ...l, completed: willBeCompleted };
             })
           };
